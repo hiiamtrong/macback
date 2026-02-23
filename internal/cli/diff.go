@@ -9,6 +9,7 @@ import (
 	"github.com/trongdev/macos-backup/internal/backup"
 	"github.com/trongdev/macos-backup/internal/crypto"
 	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/trongdev/macos-backup/internal/logger"
 	"github.com/trongdev/macos-backup/internal/restore"
 )
 
@@ -40,7 +41,8 @@ func newDiffCmd() *cobra.Command {
 				categoryFilter = strings.Split(categories, ",")
 			}
 
-			engine := restore.NewEngine(&crypto.NullDecryptor{})
+			log := logger.New(verbose)
+			engine := restore.NewEngine(&crypto.NullDecryptor{}, log)
 			diffs, err := engine.Diff(context.Background(), manifest, expandedSource, categoryFilter)
 			if err != nil {
 				return err

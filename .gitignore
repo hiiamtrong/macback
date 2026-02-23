@@ -1,3 +1,7 @@
 bin/
 cover.out
 cover.html
+
+# Test artifacts from macback restore
+Brewfile
+brew-*.txt

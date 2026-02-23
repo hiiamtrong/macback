@@ -3,12 +3,15 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/trongdev/macos-backup/internal/backup"
 	"github.com/trongdev/macos-backup/internal/crypto"
 	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/trongdev/macos-backup/internal/logger"
 	"github.com/trongdev/macos-backup/internal/restore"
 )
 
@@ -47,16 +50,16 @@ func newRestoreCmd() *cobra.Command {
 
 			var dec crypto.Decryptor
 			if manifest.HasEncryptedFiles() {
-				passphrase, err := getPassphrase(passphraseFile, "Enter passphrase for decrypting secrets: ")
+				dec, err = getDecryptorWithRetry(manifest, expandedSource, passphraseFile)
 				if err != nil {
 					return err
 				}
-				dec = crypto.NewPassphraseDecryptor(passphrase)
 			} else {
 				dec = &crypto.NullDecryptor{}
 			}
 
-			engine := restore.NewEngine(dec)
+			log := logger.New(verbose)
+			engine := restore.NewEngine(dec, log)
 
 			if dryRun {
 				diffs, err := engine.Diff(context.Background(), manifest, expandedSource, categoryFilter)
@@ -88,4 +91,51 @@ func newRestoreCmd() *cobra.Command {
 	cmd.MarkFlagRequired("source")
 
 	return cmd
+}
+
+func getDecryptorWithRetry(manifest *backup.Manifest, backupDir string, passphraseFile string) (crypto.Decryptor, error) {
+	// Find the first encrypted file for testing
+	var testFile string
+	for _, cat := range manifest.Categories {
+		for _, f := range cat.Files {
+			if f.Encrypted {
+				testFile = filepath.Join(backupDir, f.Path)
+				break
+			}
+		}
+		if testFile != "" {
+			break
+		}
+	}
+
+	const maxRetries = 3
+	for i := 0; i < maxRetries; i++ {
+		passphrase, err := getPassphrase(passphraseFile, "Enter passphrase for decrypting secrets: ")
+		if err != nil {
+			return nil, err
+		}
+
+		dec := crypto.NewPassphraseDecryptor(passphrase)
+
+		// If no test file or reading from file, trust the input
+		if testFile == "" || passphraseFile != "" {
+			return dec, nil
+		}
+
+		// Try decrypting the test file to verify passphrase
+		tmpDir, _ := os.MkdirTemp("", "macback-test-*")
+		testDst := filepath.Join(tmpDir, "test")
+		err = dec.DecryptFile(testFile, testDst)
+		os.RemoveAll(tmpDir)
+
+		if err == nil {
+			return dec, nil
+		}
+
+		if i < maxRetries-1 {
+			fmt.Println("Wrong passphrase. Try again.")
+		}
+	}
+
+	return nil, fmt.Errorf("wrong passphrase after %d attempts", maxRetries)
 }

@@ -85,6 +85,22 @@ func DefaultConfig() *Config {
 					"/sbin",
 				},
 			},
+			"mas": {
+				Enabled: false, // requires `mas` CLI installed
+			},
+			"appsettings": {
+				Enabled: true,
+				Paths:   []string{"~/Library/Preferences/"},
+				Exclude: []string{"com.apple.*", "*.lockfile"},
+			},
+			"apps": {
+				Enabled: true,
+				ScanDirs: []string{
+					"/Applications",
+					"~/Applications",
+				},
+				CatalogOnly: true,
+			},
 		},
 		Encryption: EncryptionConfig{
 			Enabled: true,

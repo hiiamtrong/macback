@@ -33,6 +33,7 @@ type CategoryResult struct {
 	CategoryName   string
 	FileCount      int
 	EncryptedCount int
+	SkippedCount   int
 	Entries        []ManifestEntry
 	Warnings       []string
 }

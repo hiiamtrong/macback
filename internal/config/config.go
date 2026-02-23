@@ -18,6 +18,7 @@ var (
 // Config is the top-level configuration loaded from YAML.
 type Config struct {
 	BackupDest string                     `yaml:"backup_dest"`
+	MaxBackups int                        `yaml:"max_backups"`
 	Categories map[string]*CategoryConfig `yaml:"categories"`
 	Encryption EncryptionConfig           `yaml:"encryption"`
 }
@@ -76,6 +77,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("%w: backup_dest is required", ErrInvalidConfig)
 	}
 
+	if c.MaxBackups <= 0 {
+		c.MaxBackups = 3
+	}
+
 	if c.Encryption.Extension == "" {
 		c.Encryption.Extension = ".age"
 	}
@@ -87,6 +92,7 @@ func (c *Config) Validate() error {
 	validCategories := map[string]bool{
 		"ssh": true, "shell": true, "git": true,
 		"dotfiles": true, "homebrew": true, "pathbin": true,
+		"mas": true, "appsettings": true, "apps": true,
 	}
 
 	for name := range c.Categories {

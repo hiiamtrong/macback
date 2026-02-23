@@ -11,6 +11,7 @@ import (
 	"github.com/trongdev/macos-backup/internal/backup"
 	"github.com/trongdev/macos-backup/internal/crypto"
 	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/trongdev/macos-backup/internal/logger"
 )
 
 // DiffStatus represents the state of a file comparison.
@@ -42,11 +43,12 @@ type Result struct {
 // Engine performs restore operations.
 type Engine struct {
 	dec crypto.Decryptor
+	log *logger.Logger
 }
 
 // NewEngine creates a new restore engine.
-func NewEngine(dec crypto.Decryptor) *Engine {
-	return &Engine{dec: dec}
+func NewEngine(dec crypto.Decryptor, log *logger.Logger) *Engine {
+	return &Engine{dec: dec, log: log}
 }
 
 // Diff compares the backup with the current system state.
@@ -141,7 +143,7 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 			continue
 		}
 
-		fmt.Printf("Restoring %s...\n", catName)
+		e.log.Info("Restoring %s...", catName)
 
 		for _, f := range cat.Files {
 			select {
@@ -152,14 +154,14 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 
 			backupFilePath := filepath.Join(backupDir, f.Path)
 			if !fsutil.FileExists(backupFilePath) {
-				fmt.Fprintf(os.Stderr, "  Warning: backup file missing: %s\n", f.Path)
+				e.log.Warn("  backup file missing: %s", f.Path)
 				result.Errors++
 				continue
 			}
 
 			systemPath, err := fsutil.ExpandPath(f.Original)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "  Warning: cannot expand path %s: %v\n", f.Original, err)
+				e.log.Warn("  cannot expand path %s: %v", f.Original, err)
 				result.Errors++
 				continue
 			}
@@ -170,20 +172,20 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 				if !f.Encrypted && f.SHA256 != "" {
 					systemHash, _ := fsutil.SHA256File(systemPath)
 					if systemHash == f.SHA256 {
-						fmt.Printf("  %s [skipped - identical]\n", fsutil.ContractPath(systemPath))
+						e.log.Info("  %s [skipped - identical]", fsutil.ContractPath(systemPath))
 						result.Skipped++
 						continue
 					}
 				}
 
 				// Ask user
-				fmt.Printf("  %s already exists. Overwrite? [y/N/skip] ", fsutil.ContractPath(systemPath))
+				e.log.Infof("  %s already exists. Overwrite? [y/N/skip] ", fsutil.ContractPath(systemPath))
 				reader := bufio.NewReader(os.Stdin)
 				answer, _ := reader.ReadString('\n')
 				answer = strings.TrimSpace(strings.ToLower(answer))
 
 				if answer != "y" && answer != "yes" {
-					fmt.Printf("  %s [skipped]\n", fsutil.ContractPath(systemPath))
+					e.log.Info("  %s [skipped]", fsutil.ContractPath(systemPath))
 					result.Skipped++
 					continue
 				}
@@ -191,7 +193,7 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 
 			// Ensure destination directory exists
 			if err := os.MkdirAll(filepath.Dir(systemPath), 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "  Error creating directory for %s: %v\n", systemPath, err)
+				e.log.Error("  creating directory for %s: %v", systemPath, err)
 				result.Errors++
 				continue
 			}
@@ -199,13 +201,13 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 			// Restore the file
 			if f.Encrypted {
 				if err := e.dec.DecryptFile(backupFilePath, systemPath); err != nil {
-					fmt.Fprintf(os.Stderr, "  Error decrypting %s: %v\n", f.Path, err)
+					e.log.Error("  decrypting %s: %v", f.Path, err)
 					result.Errors++
 					continue
 				}
 			} else {
 				if err := fsutil.CopyFile(backupFilePath, systemPath); err != nil {
-					fmt.Fprintf(os.Stderr, "  Error restoring %s: %v\n", f.Path, err)
+					e.log.Error("  restoring %s: %v", f.Path, err)
 					result.Errors++
 					continue
 				}
@@ -223,7 +225,7 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 			if f.Encrypted {
 				status = "decrypted and restored"
 			}
-			fmt.Printf("  %s [%s]\n", fsutil.ContractPath(systemPath), status)
+			e.log.Info("  %s [%s]", fsutil.ContractPath(systemPath), status)
 			result.Restored++
 		}
 	}

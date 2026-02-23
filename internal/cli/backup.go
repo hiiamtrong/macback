@@ -12,6 +12,7 @@ import (
 	"github.com/trongdev/macos-backup/internal/config"
 	"github.com/trongdev/macos-backup/internal/crypto"
 	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/trongdev/macos-backup/internal/logger"
 	"golang.org/x/term"
 )
 
@@ -48,7 +49,8 @@ func newBackupCmd() *cobra.Command {
 			var enc crypto.Encryptor
 			enc = &crypto.NullEncryptor{}
 
-			engine := backup.NewEngine(cfg, enc)
+			log := logger.New(verbose)
+			engine := backup.NewEngine(cfg, enc, log)
 
 			if dryRun {
 				entries, err := engine.DryRun(context.Background(), categoryFilter)
@@ -68,12 +70,12 @@ func newBackupCmd() *cobra.Command {
 
 			// Set up encryption for actual backup
 			if cfg.Encryption.Enabled {
-				passphrase, err := getPassphrase(passphraseFile, "Enter passphrase for encrypting secrets: ")
+				passphrase, err := getPassphraseConfirmed(passphraseFile)
 				if err != nil {
 					return err
 				}
 				enc = crypto.NewPassphraseEncryptor(passphrase)
-				engine = backup.NewEngine(cfg, enc)
+				engine = backup.NewEngine(cfg, enc, log)
 			}
 
 			manifest, err := engine.Run(context.Background(), categoryFilter, expandedDest)
@@ -94,6 +96,30 @@ func newBackupCmd() *cobra.Command {
 	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", "read passphrase from file")
 
 	return cmd
+}
+
+func getPassphraseConfirmed(passphraseFile string) (string, error) {
+	if passphraseFile != "" {
+		// From file - no confirmation needed
+		return getPassphrase(passphraseFile, "")
+	}
+
+	const maxRetries = 3
+	for i := 0; i < maxRetries; i++ {
+		passphrase, err := getPassphrase("", "Enter passphrase for encrypting secrets: ")
+		if err != nil {
+			return "", err
+		}
+		confirm, err := getPassphrase("", "Confirm passphrase: ")
+		if err != nil {
+			return "", err
+		}
+		if passphrase == confirm {
+			return passphrase, nil
+		}
+		fmt.Println("Passphrases do not match. Try again.")
+	}
+	return "", fmt.Errorf("passphrases did not match after %d attempts", maxRetries)
 }
 
 func getPassphrase(passphraseFile string, prompt string) (string, error) {
