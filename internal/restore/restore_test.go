@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/trongdev/macos-backup/internal/backup"
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
-	"github.com/trongdev/macos-backup/internal/logger"
+	"github.com/hiiamtrong/macback/internal/backup"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/logger"
 )
 
 func TestBuildFilterMap(t *testing.T) {
@@ -77,8 +77,8 @@ func TestDiffIdentical(t *testing.T) {
 	dir := t.TempDir()
 	backupDir := filepath.Join(dir, "backup")
 	systemDir := filepath.Join(dir, "system")
-	os.MkdirAll(filepath.Join(backupDir, "ssh"), 0755)
-	os.MkdirAll(systemDir, 0755)
+	if err := os.MkdirAll(filepath.Join(backupDir, "ssh"), 0755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(systemDir, 0755); err != nil { t.Fatal(err) }
 
 	content := []byte("identical content here")
 
@@ -134,7 +134,7 @@ func TestDiffIdentical(t *testing.T) {
 func TestDiffNew(t *testing.T) {
 	dir := t.TempDir()
 	backupDir := filepath.Join(dir, "backup")
-	os.MkdirAll(filepath.Join(backupDir, "ssh"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupDir, "ssh"), 0755); err != nil { t.Fatal(err) }
 
 	// Create backup file
 	backupFilePath := filepath.Join(backupDir, "ssh", "config")
@@ -179,7 +179,7 @@ func TestDiffNew(t *testing.T) {
 func TestDiffMissing(t *testing.T) {
 	dir := t.TempDir()
 	backupDir := filepath.Join(dir, "backup")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0755); err != nil { t.Fatal(err) }
 
 	// Do NOT create the backup file - it should be "missing"
 	systemFilePath := filepath.Join(dir, "system", "config")
@@ -219,8 +219,8 @@ func TestDiffModified(t *testing.T) {
 	dir := t.TempDir()
 	backupDir := filepath.Join(dir, "backup")
 	systemDir := filepath.Join(dir, "system")
-	os.MkdirAll(filepath.Join(backupDir, "ssh"), 0755)
-	os.MkdirAll(systemDir, 0755)
+	if err := os.MkdirAll(filepath.Join(backupDir, "ssh"), 0755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(systemDir, 0755); err != nil { t.Fatal(err) }
 
 	// Create backup file with original content
 	backupFilePath := filepath.Join(backupDir, "ssh", "config")
@@ -274,12 +274,12 @@ func TestDiffModified(t *testing.T) {
 func TestDiffWithCategoryFilter(t *testing.T) {
 	dir := t.TempDir()
 	backupDir := filepath.Join(dir, "backup")
-	os.MkdirAll(filepath.Join(backupDir, "ssh"), 0755)
-	os.MkdirAll(filepath.Join(backupDir, "git"), 0755)
+	if err := os.MkdirAll(filepath.Join(backupDir, "ssh"), 0755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(filepath.Join(backupDir, "git"), 0755); err != nil { t.Fatal(err) }
 
 	// Create backup files
-	os.WriteFile(filepath.Join(backupDir, "ssh", "config"), []byte("ssh config"), 0644)
-	os.WriteFile(filepath.Join(backupDir, "git", "gitconfig"), []byte("git config"), 0644)
+	if err := os.WriteFile(filepath.Join(backupDir, "ssh", "config"), []byte("ssh config"), 0644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(backupDir, "git", "gitconfig"), []byte("git config"), 0644); err != nil { t.Fatal(err) }
 
 	manifest := &backup.Manifest{
 		Categories: map[string]*backup.ManifestCategory{
@@ -327,7 +327,7 @@ func TestDiffWithCategoryFilter(t *testing.T) {
 func TestDiffSkipsNotBackedUp(t *testing.T) {
 	dir := t.TempDir()
 	backupDir := filepath.Join(dir, "backup")
-	os.MkdirAll(backupDir, 0755)
+	if err := os.MkdirAll(backupDir, 0755); err != nil { t.Fatal(err) }
 
 	manifest := &backup.Manifest{
 		Categories: map[string]*backup.ManifestCategory{

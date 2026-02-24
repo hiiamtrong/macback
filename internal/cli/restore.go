@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/trongdev/macos-backup/internal/backup"
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
-	"github.com/trongdev/macos-backup/internal/logger"
-	"github.com/trongdev/macos-backup/internal/restore"
+	"github.com/hiiamtrong/macback/internal/backup"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/logger"
+	"github.com/hiiamtrong/macback/internal/restore"
 )
 
 func newRestoreCmd() *cobra.Command {
@@ -88,7 +88,7 @@ func newRestoreCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "skip confirmation prompts")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview what would be restored")
 	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", "read passphrase from file")
-	cmd.MarkFlagRequired("source")
+	_ = cmd.MarkFlagRequired("source")
 
 	return cmd
 }
@@ -126,7 +126,7 @@ func getDecryptorWithRetry(manifest *backup.Manifest, backupDir string, passphra
 		tmpDir, _ := os.MkdirTemp("", "macback-test-*")
 		testDst := filepath.Join(tmpDir, "test")
 		err = dec.DecryptFile(testFile, testDst)
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 
 		if err == nil {
 			return dec, nil

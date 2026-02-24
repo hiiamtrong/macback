@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/trongdev/macos-backup/internal/backup"
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
-	"github.com/trongdev/macos-backup/internal/logger"
+	"github.com/hiiamtrong/macback/internal/backup"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/logger"
 )
 
 // DiffStatus represents the state of a file comparison.
@@ -217,7 +217,9 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 			if f.Mode != "" {
 				mode, err := fsutil.ParseFileMode(f.Mode)
 				if err == nil {
-					os.Chmod(systemPath, mode)
+					if err := os.Chmod(systemPath, mode); err != nil {
+						e.log.Warn("  setting permissions on %s: %v", systemPath, err)
+					}
 				}
 			}
 

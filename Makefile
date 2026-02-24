@@ -1,6 +1,6 @@
 APP_NAME := macback
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-LDFLAGS := -ldflags "-X github.com/trongdev/macos-backup/internal/cli.Version=$(VERSION)"
+LDFLAGS := -ldflags "-X github.com/hiiamtrong/macback/internal/cli.Version=$(VERSION)"
 
 .PHONY: build test lint clean install
 

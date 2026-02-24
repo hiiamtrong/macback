@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/trongdev/macos-backup/internal/config"
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/config"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
 )
 
 func init() {

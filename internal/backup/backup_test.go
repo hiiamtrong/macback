@@ -8,16 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
 )
 
 func TestBackupFileEntry(t *testing.T) {
 	dir := t.TempDir()
 	srcDir := filepath.Join(dir, "src")
 	dstDir := filepath.Join(dir, "dst")
-	os.MkdirAll(srcDir, 0755)
-	os.MkdirAll(dstDir, 0755)
+	if err := os.MkdirAll(srcDir, 0755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(dstDir, 0755); err != nil { t.Fatal(err) }
 
 	content := []byte("hello backup test")
 	srcPath := filepath.Join(srcDir, "testfile.txt")
@@ -89,8 +89,8 @@ func TestBackupFileEntryEncrypted(t *testing.T) {
 	dir := t.TempDir()
 	srcDir := filepath.Join(dir, "src")
 	dstDir := filepath.Join(dir, "dst")
-	os.MkdirAll(srcDir, 0755)
-	os.MkdirAll(dstDir, 0755)
+	if err := os.MkdirAll(srcDir, 0755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(dstDir, 0755); err != nil { t.Fatal(err) }
 
 	content := []byte("secret content for encryption")
 	srcPath := filepath.Join(srcDir, "secret.txt")
@@ -401,7 +401,7 @@ func TestBackupFileEntryCreatesDestDir(t *testing.T) {
 	dir := t.TempDir()
 	srcDir := filepath.Join(dir, "src")
 	dstDir := filepath.Join(dir, "dst", "nested", "dir")
-	os.MkdirAll(srcDir, 0755)
+	if err := os.MkdirAll(srcDir, 0755); err != nil { t.Fatal(err) }
 
 	content := []byte("nested test")
 	srcPath := filepath.Join(srcDir, "file.txt")
@@ -439,8 +439,8 @@ func TestBackupFileEntryPreservesMode(t *testing.T) {
 	dir := t.TempDir()
 	srcDir := filepath.Join(dir, "src")
 	dstDir := filepath.Join(dir, "dst")
-	os.MkdirAll(srcDir, 0755)
-	os.MkdirAll(dstDir, 0755)
+	if err := os.MkdirAll(srcDir, 0755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(dstDir, 0755); err != nil { t.Fatal(err) }
 
 	srcPath := filepath.Join(srcDir, "executable.sh")
 	if err := os.WriteFile(srcPath, []byte("#!/bin/bash"), 0755); err != nil {

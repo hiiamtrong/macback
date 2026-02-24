@@ -46,13 +46,13 @@ func (e *PassphraseEncryptor) EncryptFile(srcPath, dstPath string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("opening source: %w", err)
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }()
 
 	dstFile, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return "", fmt.Errorf("creating destination: %w", err)
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 
 	recipient, err := age.NewScryptRecipient(e.passphrase)
 	if err != nil {
@@ -96,7 +96,7 @@ func (d *PassphraseDecryptor) DecryptFile(srcPath, dstPath string) error {
 	if err != nil {
 		return fmt.Errorf("opening encrypted file: %w", err)
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }()
 
 	identity, err := age.NewScryptIdentity(d.passphrase)
 	if err != nil {
@@ -112,7 +112,7 @@ func (d *PassphraseDecryptor) DecryptFile(srcPath, dstPath string) error {
 	if err != nil {
 		return fmt.Errorf("creating destination: %w", err)
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 
 	if _, err := io.Copy(dstFile, reader); err != nil {
 		return fmt.Errorf("writing decrypted data: %w", err)
@@ -130,7 +130,7 @@ func (n *NullEncryptor) EncryptFile(srcPath, dstPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
 		return "", err
@@ -140,7 +140,7 @@ func (n *NullEncryptor) EncryptFile(srcPath, dstPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 
 	if _, err := io.Copy(dstFile, srcFile); err != nil {
 		return "", err
@@ -158,7 +158,7 @@ func (n *NullDecryptor) DecryptFile(srcPath, dstPath string) error {
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
 		return err
@@ -168,7 +168,7 @@ func (n *NullDecryptor) DecryptFile(srcPath, dstPath string) error {
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 
 	_, err = io.Copy(dstFile, srcFile)
 	return err

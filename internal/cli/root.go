@@ -1,11 +1,10 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trongdev/macos-backup/internal/config"
+	"github.com/hiiamtrong/macback/internal/config"
 )
 
 var (
@@ -52,8 +51,3 @@ func getConfigPath() string {
 	return config.DefaultConfigPath()
 }
 
-func logVerbose(format string, args ...interface{}) {
-	if verbose {
-		fmt.Printf(format+"\n", args...)
-	}
-}

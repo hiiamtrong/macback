@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/trongdev/macos-backup/internal/config"
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
-	"github.com/trongdev/macos-backup/internal/logger"
+	"github.com/hiiamtrong/macback/internal/config"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/logger"
 )
 
 // Engine orchestrates the backup process across all categories.
@@ -225,7 +225,9 @@ func (e *Engine) rotateBackup(dest string, prevManifest *Manifest) string {
 	}
 
 	// Clean up old rotated backups
-	e.cleanOldBackups(dest)
+	if err := e.cleanOldBackups(dest); err != nil {
+		e.log.Warn("cleaning old backups: %v", err)
+	}
 	return rotatedDir
 }
 

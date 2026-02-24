@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/trongdev/macos-backup/internal/config"
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/config"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
 	"gopkg.in/yaml.v3"
 )
 
@@ -189,7 +189,7 @@ func detectAppSource(appPath, appName string, brewCasks map[string]bool) string 
 // getAppSize returns the total size of an app bundle.
 func getAppSize(appPath string) int64 {
 	var total int64
-	filepath.WalkDir(appPath, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(appPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}

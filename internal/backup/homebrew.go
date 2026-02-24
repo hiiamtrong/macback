@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/trongdev/macos-backup/internal/config"
-	"github.com/trongdev/macos-backup/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/config"
+	"github.com/hiiamtrong/macback/internal/crypto"
 )
 
 func init() {
@@ -60,37 +60,40 @@ func (h *HomebrewHandler) Backup(ctx context.Context, entries []FileEntry, dest 
 	// brew list --formula
 	formulaPath := filepath.Join(dest, "brew-list.txt")
 	if output, err := exec.CommandContext(ctx, "brew", "list", "--formula", "-1").Output(); err == nil {
-		os.WriteFile(formulaPath, output, 0644)
-		result.Entries = append(result.Entries, ManifestEntry{
-			Path:     "homebrew/brew-list.txt",
-			Original: "brew-list.txt",
-			Size:     int64(len(output)),
-		})
-		result.FileCount++
+		if err := os.WriteFile(formulaPath, output, 0644); err == nil {
+			result.Entries = append(result.Entries, ManifestEntry{
+				Path:     "homebrew/brew-list.txt",
+				Original: "brew-list.txt",
+				Size:     int64(len(output)),
+			})
+			result.FileCount++
+		}
 	}
 
 	// brew list --cask
 	caskPath := filepath.Join(dest, "brew-cask-list.txt")
 	if output, err := exec.CommandContext(ctx, "brew", "list", "--cask", "-1").Output(); err == nil {
-		os.WriteFile(caskPath, output, 0644)
-		result.Entries = append(result.Entries, ManifestEntry{
-			Path:     "homebrew/brew-cask-list.txt",
-			Original: "brew-cask-list.txt",
-			Size:     int64(len(output)),
-		})
-		result.FileCount++
+		if err := os.WriteFile(caskPath, output, 0644); err == nil {
+			result.Entries = append(result.Entries, ManifestEntry{
+				Path:     "homebrew/brew-cask-list.txt",
+				Original: "brew-cask-list.txt",
+				Size:     int64(len(output)),
+			})
+			result.FileCount++
+		}
 	}
 
 	// brew tap
 	tapPath := filepath.Join(dest, "brew-taps.txt")
 	if output, err := exec.CommandContext(ctx, "brew", "tap").Output(); err == nil {
-		os.WriteFile(tapPath, output, 0644)
-		result.Entries = append(result.Entries, ManifestEntry{
-			Path:     "homebrew/brew-taps.txt",
-			Original: "brew-taps.txt",
-			Size:     int64(len(output)),
-		})
-		result.FileCount++
+		if err := os.WriteFile(tapPath, output, 0644); err == nil {
+			result.Entries = append(result.Entries, ManifestEntry{
+				Path:     "homebrew/brew-taps.txt",
+				Original: "brew-taps.txt",
+				Size:     int64(len(output)),
+			})
+			result.FileCount++
+		}
 	}
 
 	return result, nil

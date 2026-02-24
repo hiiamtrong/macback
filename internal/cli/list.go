@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/trongdev/macos-backup/internal/backup"
-	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/backup"
+	"github.com/hiiamtrong/macback/internal/fsutil"
 )
 
 func newListCmd() *cobra.Command {
@@ -74,7 +74,7 @@ func newListCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&source, "source", "s", "", "backup folder to inspect (required)")
 	cmd.Flags().StringVar(&categories, "categories", "", "filter by categories")
 	cmd.Flags().BoolVar(&showSecrets, "show-secrets", false, "indicate encrypted files")
-	cmd.MarkFlagRequired("source")
+	_ = cmd.MarkFlagRequired("source")
 
 	return cmd
 }
