@@ -97,7 +97,7 @@ func newRestoreBrewCmd() *cobra.Command {
 					tapCmd := exec.Command("brew", "tap", tap)
 					tapCmd.Stdout = os.Stdout
 					tapCmd.Stderr = os.Stderr
-					tapCmd.Run() // ignore errors, tap may already exist
+					_ = tapCmd.Run() // ignore errors, tap may already exist
 				}
 			}
 
@@ -121,7 +121,7 @@ func newRestoreBrewCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&source, "source", "s", "", "backup source folder (required)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be restored without doing it")
-	cmd.MarkFlagRequired("source")
+	_ = cmd.MarkFlagRequired("source")
 
 	return cmd
 }

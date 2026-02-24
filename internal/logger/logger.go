@@ -24,27 +24,27 @@ func New(verbose bool) *Logger {
 
 // Info prints a message to stdout (always visible).
 func (l *Logger) Info(format string, args ...any) {
-	fmt.Fprintf(l.out, format+"\n", args...)
+	_, _ = fmt.Fprintf(l.out, format+"\n", args...)
 }
 
 // Infof prints without newline (for inline output like progress).
 func (l *Logger) Infof(format string, args ...any) {
-	fmt.Fprintf(l.out, format, args...)
+	_, _ = fmt.Fprintf(l.out, format, args...)
 }
 
 // Verbose prints only when verbose mode is enabled.
 func (l *Logger) Verbose(format string, args ...any) {
 	if l.verbose {
-		fmt.Fprintf(l.out, format+"\n", args...)
+		_, _ = fmt.Fprintf(l.out, format+"\n", args...)
 	}
 }
 
 // Warn prints a warning to stderr.
 func (l *Logger) Warn(format string, args ...any) {
-	fmt.Fprintf(l.errOut, "Warning: "+format+"\n", args...)
+	_, _ = fmt.Fprintf(l.errOut, "Warning: "+format+"\n", args...)
 }
 
 // Error prints an error to stderr.
 func (l *Logger) Error(format string, args ...any) {
-	fmt.Fprintf(l.errOut, "Error: "+format+"\n", args...)
+	_, _ = fmt.Fprintf(l.errOut, "Error: "+format+"\n", args...)
 }

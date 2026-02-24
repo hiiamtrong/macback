@@ -78,9 +78,9 @@ func TestCopyDir(t *testing.T) {
 	dst := filepath.Join(dir, "dst")
 
 	// Create source structure
-	os.MkdirAll(filepath.Join(src, "sub"), 0755)
-	os.WriteFile(filepath.Join(src, "a.txt"), []byte("aaa"), 0644)
-	os.WriteFile(filepath.Join(src, "sub", "b.txt"), []byte("bbb"), 0644)
+	if err := os.MkdirAll(filepath.Join(src, "sub"), 0755); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(src, "a.txt"), []byte("aaa"), 0644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(src, "sub", "b.txt"), []byte("bbb"), 0644); err != nil { t.Fatal(err) }
 
 	if err := CopyDir(src, dst, nil); err != nil {
 		t.Fatalf("CopyDir() error: %v", err)
@@ -100,10 +100,10 @@ func TestCopyDirWithExcludes(t *testing.T) {
 	src := filepath.Join(dir, "src")
 	dst := filepath.Join(dir, "dst")
 
-	os.MkdirAll(filepath.Join(src, "Cache"), 0755)
-	os.WriteFile(filepath.Join(src, "keep.txt"), []byte("keep"), 0644)
-	os.WriteFile(filepath.Join(src, "skip.log"), []byte("skip"), 0644)
-	os.WriteFile(filepath.Join(src, "Cache", "data"), []byte("cache"), 0644)
+	if err := os.MkdirAll(filepath.Join(src, "Cache"), 0755); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(src, "keep.txt"), []byte("keep"), 0644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(src, "skip.log"), []byte("skip"), 0644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(src, "Cache", "data"), []byte("cache"), 0644); err != nil { t.Fatal(err) }
 
 	if err := CopyDir(src, dst, []string{"*.log", "Cache"}); err != nil {
 		t.Fatalf("CopyDir() error: %v", err)
@@ -123,7 +123,7 @@ func TestCopyDirWithExcludes(t *testing.T) {
 func TestSHA256File(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.txt")
-	os.WriteFile(path, []byte("hello"), 0644)
+	if err := os.WriteFile(path, []byte("hello"), 0644); err != nil { t.Fatal(err) }
 
 	hash, err := SHA256File(path)
 	if err != nil {
@@ -140,7 +140,7 @@ func TestSHA256File(t *testing.T) {
 func TestFileExists(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "exists.txt")
-	os.WriteFile(path, []byte(""), 0644)
+	if err := os.WriteFile(path, []byte(""), 0644); err != nil { t.Fatal(err) }
 
 	if !FileExists(path) {
 		t.Error("FileExists should return true for existing file")
@@ -217,9 +217,9 @@ func TestContractPath(t *testing.T) {
 
 func TestExpandGlob(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "a.txt"), []byte(""), 0644)
-	os.WriteFile(filepath.Join(dir, "b.txt"), []byte(""), 0644)
-	os.WriteFile(filepath.Join(dir, "c.log"), []byte(""), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte(""), 0644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(dir, "b.txt"), []byte(""), 0644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(dir, "c.log"), []byte(""), 0644); err != nil { t.Fatal(err) }
 
 	matches, err := ExpandGlob(filepath.Join(dir, "*.txt"))
 	if err != nil {

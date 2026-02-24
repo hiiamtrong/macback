@@ -217,7 +217,9 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 			if f.Mode != "" {
 				mode, err := fsutil.ParseFileMode(f.Mode)
 				if err == nil {
-					os.Chmod(systemPath, mode)
+					if err := os.Chmod(systemPath, mode); err != nil {
+						e.log.Warn("  setting permissions on %s: %v", systemPath, err)
+					}
 				}
 			}
 

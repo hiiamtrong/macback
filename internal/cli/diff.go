@@ -55,7 +55,7 @@ func newDiffCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&source, "source", "s", "", "backup source folder (required)")
 	cmd.Flags().StringVar(&categories, "categories", "", "comma-separated categories")
-	cmd.MarkFlagRequired("source")
+	_ = cmd.MarkFlagRequired("source")
 
 	return cmd
 }
