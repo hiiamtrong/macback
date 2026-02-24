@@ -35,6 +35,8 @@ type CategoryConfig struct {
 	ScanDirs        []string `yaml:"scan_dirs,omitempty"`
 	CatalogOnly     bool     `yaml:"catalog_only,omitempty"`
 	ExcludePrefixes []string `yaml:"exclude_prefixes,omitempty"`
+	MaxFileSizeMB   int      `yaml:"max_file_size_mb,omitempty"`
+	ProjectDepth    int      `yaml:"project_depth,omitempty"`
 }
 
 // EncryptionConfig defines global encryption settings.
@@ -93,6 +95,7 @@ func (c *Config) Validate() error {
 		"ssh": true, "shell": true, "git": true,
 		"dotfiles": true, "homebrew": true, "pathbin": true,
 		"mas": true, "appsettings": true, "apps": true,
+		"projects": true,
 	}
 
 	for name := range c.Categories {

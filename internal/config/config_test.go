@@ -136,7 +136,7 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("default BackupDest should not be empty")
 	}
 
-	expectedCategories := []string{"ssh", "shell", "git", "dotfiles", "homebrew", "pathbin"}
+	expectedCategories := []string{"ssh", "shell", "git", "dotfiles", "homebrew", "pathbin", "projects"}
 	for _, name := range expectedCategories {
 		if _, ok := cfg.Categories[name]; !ok {
 			t.Errorf("default config missing category %q", name)
@@ -145,6 +145,66 @@ func TestDefaultConfig(t *testing.T) {
 
 	if !cfg.Encryption.Enabled {
 		t.Error("encryption should be enabled by default")
+	}
+}
+
+func TestDefaultProjectsCategory(t *testing.T) {
+	cfg := DefaultConfig()
+
+	projects, ok := cfg.Categories["projects"]
+	if !ok {
+		t.Fatal("default config missing 'projects' category")
+	}
+
+	if projects.Enabled {
+		t.Error("projects category should be disabled by default")
+	}
+	if len(projects.ScanDirs) == 0 {
+		t.Error("projects category should have default scan_dirs")
+	}
+	if projects.MaxFileSizeMB != 50 {
+		t.Errorf("projects MaxFileSizeMB = %d, want 50", projects.MaxFileSizeMB)
+	}
+	if projects.ProjectDepth != 1 {
+		t.Errorf("projects ProjectDepth = %d, want 1", projects.ProjectDepth)
+	}
+	if len(projects.Exclude) == 0 {
+		t.Error("projects category should have default exclude patterns")
+	}
+}
+
+func TestValidateAcceptsProjectsCategory(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	content := `
+backup_dest: /tmp/test
+categories:
+  projects:
+    enabled: false
+    scan_dirs:
+      - ~/Works
+    project_depth: 1
+    max_file_size_mb: 50
+`
+	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load() with projects category error: %v", err)
+	}
+
+	projects := cfg.Categories["projects"]
+	if projects == nil {
+		t.Fatal("projects category not loaded")
+	}
+	if projects.MaxFileSizeMB != 50 {
+		t.Errorf("MaxFileSizeMB = %d, want 50", projects.MaxFileSizeMB)
+	}
+	if projects.ProjectDepth != 1 {
+		t.Errorf("ProjectDepth = %d, want 1", projects.ProjectDepth)
 	}
 }
 

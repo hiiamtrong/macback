@@ -101,6 +101,23 @@ func DefaultConfig() *Config {
 				},
 				CatalogOnly: true,
 			},
+			"projects": {
+				Enabled:       false, // Enable and configure scan_dirs before use
+				ScanDirs:      []string{"~/Works", "~/projects"},
+				ProjectDepth:  1,
+				MaxFileSizeMB: 50,
+				Exclude: []string{
+					// Package managers
+					"node_modules", "vendor", ".venv", "venv", "env", "Pods",
+					// Build outputs
+					"__pycache__", ".gradle", "build", "target", "dist", ".next", ".nuxt", "out",
+					// Caches & VCS
+					".cache", ".git", ".DS_Store",
+					// Binary artifacts
+					"*.pyc", "*.class", "*.o", "*.a",
+				},
+				SecretPatterns: []string{".env", ".env.*", "*secret*", "*.pem", "*.key"},
+			},
 		},
 		Encryption: EncryptionConfig{
 			Enabled: true,
