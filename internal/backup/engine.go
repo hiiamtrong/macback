@@ -225,7 +225,9 @@ func (e *Engine) rotateBackup(dest string, prevManifest *Manifest) string {
 	}
 
 	// Clean up old rotated backups
-	e.cleanOldBackups(dest)
+	if err := e.cleanOldBackups(dest); err != nil {
+		e.log.Warn("cleaning old backups: %v", err)
+	}
 	return rotatedDir
 }
 

@@ -68,16 +68,16 @@ func TestDotfilesDiscoverExcludes(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create files to keep
-	os.WriteFile(filepath.Join(dir, ".zshrc"), []byte("export PATH"), 0644)
-	os.WriteFile(filepath.Join(dir, ".gitconfig"), []byte("[user]"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, ".zshrc"), []byte("export PATH"), 0644); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(dir, ".gitconfig"), []byte("[user]"), 0644); err != nil { t.Fatal(err) }
 
 	// Create files to exclude
-	os.WriteFile(filepath.Join(dir, "debug.log"), []byte("log data"), 0644)
+	if err := os.WriteFile(filepath.Join(dir, "debug.log"), []byte("log data"), 0644); err != nil { t.Fatal(err) }
 
 	// Create Cache directory to exclude
 	cacheDir := filepath.Join(dir, "Cache")
-	os.MkdirAll(cacheDir, 0755)
-	os.WriteFile(filepath.Join(cacheDir, "data.bin"), []byte("cache"), 0644)
+	if err := os.MkdirAll(cacheDir, 0755); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(filepath.Join(cacheDir, "data.bin"), []byte("cache"), 0644); err != nil { t.Fatal(err) }
 
 	handler := &DotfilesHandler{}
 	cfg := &config.CategoryConfig{
@@ -213,8 +213,8 @@ func TestDetectAppSource(t *testing.T) {
 			setup: func() string {
 				appPath := filepath.Join(dir, "Pages.app")
 				receiptDir := filepath.Join(appPath, "Contents", "_MASReceipt")
-				os.MkdirAll(receiptDir, 0755)
-				os.WriteFile(filepath.Join(receiptDir, "receipt"), []byte("receipt-data"), 0644)
+				if err := os.MkdirAll(receiptDir, 0755); err != nil { t.Fatal(err) }
+				if err := os.WriteFile(filepath.Join(receiptDir, "receipt"), []byte("receipt-data"), 0644); err != nil { t.Fatal(err) }
 				return appPath
 			},
 			appName:   "Pages",
@@ -225,7 +225,7 @@ func TestDetectAppSource(t *testing.T) {
 			name: "homebrew cask app",
 			setup: func() string {
 				appPath := filepath.Join(dir, "Firefox.app")
-				os.MkdirAll(appPath, 0755)
+				if err := os.MkdirAll(appPath, 0755); err != nil { t.Fatal(err) }
 				return appPath
 			},
 			appName:   "Firefox",
@@ -236,7 +236,7 @@ func TestDetectAppSource(t *testing.T) {
 			name: "homebrew cask app with spaces",
 			setup: func() string {
 				appPath := filepath.Join(dir, "Visual Studio Code.app")
-				os.MkdirAll(appPath, 0755)
+				if err := os.MkdirAll(appPath, 0755); err != nil { t.Fatal(err) }
 				return appPath
 			},
 			appName:   "Visual Studio Code",
@@ -247,7 +247,7 @@ func TestDetectAppSource(t *testing.T) {
 			name: "manual app",
 			setup: func() string {
 				appPath := filepath.Join(dir, "CustomApp.app")
-				os.MkdirAll(appPath, 0755)
+				if err := os.MkdirAll(appPath, 0755); err != nil { t.Fatal(err) }
 				return appPath
 			},
 			appName:   "CustomApp",

@@ -142,7 +142,7 @@ func TestEncryptAddsAgeExtension(t *testing.T) {
 	srcPath := filepath.Join(dir, "secret.txt")
 	dstPath := filepath.Join(dir, "secret.txt") // No .age extension
 
-	os.WriteFile(srcPath, []byte("secret"), 0600)
+	if err := os.WriteFile(srcPath, []byte("secret"), 0600); err != nil { t.Fatal(err) }
 
 	enc := NewPassphraseEncryptor("pass")
 	resultPath, err := enc.EncryptFile(srcPath, dstPath)
@@ -161,11 +161,11 @@ func TestDecryptWrongPassphrase(t *testing.T) {
 	encPath := filepath.Join(dir, "secret.age")
 	decPath := filepath.Join(dir, "decrypted.txt")
 
-	os.WriteFile(srcPath, []byte("secret data"), 0600)
+	if err := os.WriteFile(srcPath, []byte("secret data"), 0600); err != nil { t.Fatal(err) }
 
 	// Encrypt with one passphrase
 	enc := NewPassphraseEncryptor("correct-passphrase")
-	enc.EncryptFile(srcPath, encPath)
+	if _, err := enc.EncryptFile(srcPath, encPath); err != nil { t.Fatal(err) }
 
 	// Try to decrypt with wrong passphrase
 	dec := NewPassphraseDecryptor("wrong-passphrase")
@@ -181,7 +181,7 @@ func TestEncryptEmptyFile(t *testing.T) {
 	encPath := filepath.Join(dir, "empty.age")
 	decPath := filepath.Join(dir, "decrypted.txt")
 
-	os.WriteFile(srcPath, []byte(""), 0600)
+	if err := os.WriteFile(srcPath, []byte(""), 0600); err != nil { t.Fatal(err) }
 
 	passphrase := "pass"
 
@@ -208,7 +208,7 @@ func TestNullEncryptor(t *testing.T) {
 	dstPath := filepath.Join(dir, "copy.txt")
 
 	original := "plain text"
-	os.WriteFile(srcPath, []byte(original), 0644)
+	if err := os.WriteFile(srcPath, []byte(original), 0644); err != nil { t.Fatal(err) }
 
 	enc := &NullEncryptor{}
 	_, err := enc.EncryptFile(srcPath, dstPath)
@@ -228,7 +228,7 @@ func TestNullDecryptor(t *testing.T) {
 	dstPath := filepath.Join(dir, "copy.txt")
 
 	original := "plain text"
-	os.WriteFile(srcPath, []byte(original), 0644)
+	if err := os.WriteFile(srcPath, []byte(original), 0644); err != nil { t.Fatal(err) }
 
 	dec := &NullDecryptor{}
 	if err := dec.DecryptFile(srcPath, dstPath); err != nil {

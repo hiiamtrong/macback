@@ -88,7 +88,7 @@ func newRestoreCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&force, "force", false, "skip confirmation prompts")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview what would be restored")
 	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", "read passphrase from file")
-	cmd.MarkFlagRequired("source")
+	_ = cmd.MarkFlagRequired("source")
 
 	return cmd
 }
@@ -126,7 +126,7 @@ func getDecryptorWithRetry(manifest *backup.Manifest, backupDir string, passphra
 		tmpDir, _ := os.MkdirTemp("", "macback-test-*")
 		testDst := filepath.Join(tmpDir, "test")
 		err = dec.DecryptFile(testFile, testDst)
-		os.RemoveAll(tmpDir)
+		_ = os.RemoveAll(tmpDir)
 
 		if err == nil {
 			return dec, nil
