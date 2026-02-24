@@ -1,6 +1,6 @@
 package main
 
-import "github.com/trongdev/macos-backup/internal/cli"
+import "github.com/hiiamtrong/macback/internal/cli"
 
 func main() {
 	cli.Execute()

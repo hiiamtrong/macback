@@ -4,7 +4,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trongdev/macos-backup/internal/config"
+	"github.com/hiiamtrong/macback/internal/config"
 )
 
 var (

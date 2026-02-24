@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/trongdev/macos-backup/internal/config"
-	"github.com/trongdev/macos-backup/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/config"
+	"github.com/hiiamtrong/macback/internal/crypto"
 )
 
 func init() {

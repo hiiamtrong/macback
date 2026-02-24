@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/trongdev/macos-backup/internal/config"
+	"github.com/hiiamtrong/macback/internal/config"
 )
 
 func TestSSHDiscover(t *testing.T) {

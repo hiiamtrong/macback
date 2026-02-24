@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/trongdev/macos-backup/internal/backup"
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
-	"github.com/trongdev/macos-backup/internal/logger"
-	"github.com/trongdev/macos-backup/internal/restore"
+	"github.com/hiiamtrong/macback/internal/backup"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/logger"
+	"github.com/hiiamtrong/macback/internal/restore"
 )
 
 func newDiffCmd() *cobra.Command {

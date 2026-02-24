@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trongdev/macos-backup/internal/crypto"
-	"github.com/trongdev/macos-backup/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/crypto"
+	"github.com/hiiamtrong/macback/internal/fsutil"
 )
 
 func TestBackupFileEntry(t *testing.T) {
