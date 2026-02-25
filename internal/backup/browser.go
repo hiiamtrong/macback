@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -30,20 +31,30 @@ func (h *BrowserHandler) Name() string { return "browser" }
 type browserDef struct {
 	Name           string // filesystem-safe name used in RelPath
 	AppSupportPath string // path relative to ~/Library/Application Support/
+	ProcessName    string // macOS process name for running-check (empty = skip check)
 }
 
 // knownBrowsers returns the list of supported Chromium-based browsers.
 func knownBrowsers() []browserDef {
 	return []browserDef{
-		{"BraveBrowser", "BraveSoftware/Brave-Browser"},
-		{"GoogleChrome", "Google/Chrome"},
-		{"Chromium", "Chromium"},
-		{"MicrosoftEdge", "Microsoft Edge"},
-		{"Arc", "Arc/User Data"},
-		{"Vivaldi", "Vivaldi"},
-		{"Opera", "com.operasoftware.Opera"},
-		{"OperaGX", "com.operasoftware.OperaGX"},
+		{"BraveBrowser", "BraveSoftware/Brave-Browser", "Brave Browser"},
+		{"GoogleChrome", "Google/Chrome", "Google Chrome"},
+		{"Chromium", "Chromium", "Chromium"},
+		{"MicrosoftEdge", "Microsoft Edge", "Microsoft Edge"},
+		{"Arc", "Arc/User Data", "Arc"},
+		{"Vivaldi", "Vivaldi", "Vivaldi"},
+		{"Opera", "com.operasoftware.Opera", "Opera"},
+		{"OperaGX", "com.operasoftware.OperaGX", "Opera GX"},
 	}
+}
+
+// isBrowserRunning reports whether the browser process is currently running.
+func isBrowserRunning(processName string) bool {
+	if processName == "" {
+		return false
+	}
+	err := exec.Command("pgrep", "-xq", processName).Run()
+	return err == nil
 }
 
 // builtinCacheDirs is the set of directory names that are always excluded
@@ -329,6 +340,10 @@ func PatchAllLocalStates(log patchLogger) {
 		if _, err := os.Stat(localStatePath); err != nil {
 			log.Verbose("browser patch: %s — Local State not found, skipping", b.Name)
 			continue
+		}
+
+		if isBrowserRunning(b.ProcessName) {
+			log.Warn("%s is currently running — close it after restore and re-run: macback restore --categories browser --force", b.ProcessName)
 		}
 
 		log.Info("Patching browser profiles: %s", b.Name)
