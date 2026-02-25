@@ -117,6 +117,32 @@ func buildBrowserEntry(browserName, profileName, profileDir, path string, d fs.D
 	}
 }
 
+// browserRootFiles lists root-level browser data files that must be backed up
+// for a complete restore (e.g. Local State contains the profile registry).
+var browserRootFiles = []string{"Local State"}
+
+// discoverBrowserRootFiles returns FileEntries for important root-level browser
+// data files (outside profile directories) such as "Local State".
+func discoverBrowserRootFiles(browserName, browserDir string) []FileEntry {
+	var entries []FileEntry
+	for _, name := range browserRootFiles {
+		path := filepath.Join(browserDir, name)
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		entries = append(entries, FileEntry{
+			SourcePath: path,
+			RelPath:    filepath.Join(browserName, name),
+			Category:   "browser",
+			Mode:       info.Mode().Perm(),
+			ModTime:    info.ModTime(),
+			Size:       info.Size(),
+		})
+	}
+	return entries
+}
+
 // discoverBrowserFiles walks a single browser profile directory and collects
 // eligible files, applying cache exclusions, user excludes, and size filter.
 func discoverBrowserFiles(browserName, profileDir string, cfg *config.CategoryConfig) []FileEntry {
@@ -166,6 +192,7 @@ func (h *BrowserHandler) Discover(cfg *config.CategoryConfig) ([]FileEntry, erro
 		if !fsutil.DirExists(browserDir) {
 			continue
 		}
+		entries = append(entries, discoverBrowserRootFiles(b.Name, browserDir)...)
 		for _, profile := range discoverProfiles(browserDir) {
 			entries = append(entries, discoverBrowserFiles(b.Name, profile, cfg)...)
 		}
@@ -178,6 +205,7 @@ func (h *BrowserHandler) Discover(cfg *config.CategoryConfig) ([]FileEntry, erro
 			continue
 		}
 		name := filepath.Base(expanded)
+		entries = append(entries, discoverBrowserRootFiles(name, expanded)...)
 		for _, profile := range discoverProfiles(expanded) {
 			entries = append(entries, discoverBrowserFiles(name, profile, cfg)...)
 		}

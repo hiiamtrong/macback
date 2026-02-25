@@ -100,6 +100,12 @@ func (e *Engine) Run(ctx context.Context, categories []string, dest string) (*Ma
 				continue
 			}
 
+			// Always re-encrypt secrets — passphrase may have changed between backups.
+			if entry.IsSecret {
+				changedEntries = append(changedEntries, entry)
+				continue
+			}
+
 			hash, err := fsutil.SHA256File(entry.SourcePath)
 			if err != nil {
 				changedEntries = append(changedEntries, entry)

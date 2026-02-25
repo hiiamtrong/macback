@@ -297,6 +297,39 @@ func TestBrowserBackup_CopiesFiles(t *testing.T) {
 	}
 }
 
+// T3.11 — discoverBrowserRootFiles picks up Local State from the browser dir root.
+func TestDiscoverBrowserRootFiles_LocalState(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create Local State file at the browser dir root
+	makeFile(t, filepath.Join(dir, "Local State"), []byte(`{"profile":{"info_cache":{}}}`))
+
+	// Also create a profile dir with a file — should not appear in root files
+	makeBrowserFile(t, filepath.Join(dir, "Default"), "Bookmarks", []byte(`{}`))
+
+	entries := discoverBrowserRootFiles("Chrome", dir)
+
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 root entry (Local State), got %d: %v", len(entries), entryRelPaths(entries))
+	}
+	want := filepath.Join("Chrome", "Local State")
+	if entries[0].RelPath != want {
+		t.Errorf("RelPath = %q, want %q", entries[0].RelPath, want)
+	}
+	if entries[0].Category != "browser" {
+		t.Errorf("Category = %q, want %q", entries[0].Category, "browser")
+	}
+}
+
+// T3.12 — discoverBrowserRootFiles returns nothing if Local State is absent.
+func TestDiscoverBrowserRootFiles_Missing(t *testing.T) {
+	dir := t.TempDir()
+	entries := discoverBrowserRootFiles("Chrome", dir)
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries when Local State absent, got %d", len(entries))
+	}
+}
+
 // T3.8
 func TestBrowserBackup_ContextCancellation(t *testing.T) {
 	dir := t.TempDir()

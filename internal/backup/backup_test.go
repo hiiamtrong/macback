@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"os/user"
@@ -8,8 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hiiamtrong/macback/internal/config"
 	"github.com/hiiamtrong/macback/internal/crypto"
 	"github.com/hiiamtrong/macback/internal/fsutil"
+	"github.com/hiiamtrong/macback/internal/logger"
 )
 
 func TestBackupFileEntry(t *testing.T) {
@@ -478,5 +481,66 @@ func TestReadManifestNotFound(t *testing.T) {
 	_, err := ReadManifest(dir)
 	if err == nil {
 		t.Error("ReadManifest should return error for missing manifest")
+	}
+}
+
+// TestEngine_SecretFilesReEncryptedOnPassphraseChange verifies that encrypted
+// (secret) files are always re-encrypted during incremental backups, so a
+// changed passphrase takes effect even when the source file is unchanged.
+func TestEngine_SecretFilesReEncryptedOnPassphraseChange(t *testing.T) {
+	dir := t.TempDir()
+	srcDir := filepath.Join(dir, "src")
+	dest1 := filepath.Join(dir, "backup1")
+	dest2 := filepath.Join(dir, "backup2")
+
+	// Create a secret source file
+	secretPath := filepath.Join(srcDir, "id_rsa")
+	makeFile(t, secretPath, []byte("-----BEGIN RSA PRIVATE KEY-----\nfake-key"))
+
+	cfg := &config.Config{
+		MaxBackups: 0,
+		Categories: map[string]*config.CategoryConfig{
+			"ssh": {
+				Enabled:        true,
+				Paths:          []string{filepath.Join(srcDir, "*")},
+				SecretPatterns: []string{"id_*", "!*.pub"},
+			},
+		},
+		Encryption: config.EncryptionConfig{Enabled: true},
+	}
+
+	log := logger.New(false)
+
+	// Backup 1 with passphrase "alpha"
+	enc1 := crypto.NewPassphraseEncryptor("alpha")
+	e1 := NewEngine(cfg, enc1, log)
+	if _, err := e1.Run(context.Background(), nil, dest1); err != nil {
+		t.Fatalf("backup1 Run() error: %v", err)
+	}
+
+	// Backup 2 with passphrase "beta" — source file unchanged
+	enc2 := crypto.NewPassphraseEncryptor("beta")
+	e2 := NewEngine(cfg, enc2, log)
+	if _, err := e2.Run(context.Background(), nil, dest2); err != nil {
+		t.Fatalf("backup2 Run() error: %v", err)
+	}
+
+	// Find the encrypted file in backup2
+	encFile := filepath.Join(dest2, "ssh", "id_rsa.age")
+	if !fsutil.FileExists(encFile) {
+		t.Fatalf("expected encrypted file at %s", encFile)
+	}
+
+	// Decrypting with "beta" (backup2's passphrase) must succeed
+	dec2 := crypto.NewPassphraseDecryptor("beta")
+	out := filepath.Join(dir, "id_rsa_restored")
+	if err := dec2.DecryptFile(encFile, out); err != nil {
+		t.Errorf("decrypt with backup2 passphrase failed: %v — secret was not re-encrypted", err)
+	}
+
+	// Decrypting with "alpha" (backup1's passphrase) must fail
+	dec1 := crypto.NewPassphraseDecryptor("alpha")
+	if err := dec1.DecryptFile(encFile, out+"_wrong"); err == nil {
+		t.Error("decrypt with backup1 passphrase should fail — file should use backup2 passphrase")
 	}
 }
