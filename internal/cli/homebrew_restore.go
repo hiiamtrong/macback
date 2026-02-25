@@ -12,6 +12,84 @@ import (
 	"github.com/hiiamtrong/macback/internal/fsutil"
 )
 
+type masApp struct {
+	Name string
+	ID   string
+}
+
+// parseMASLine parses a Brewfile mas entry: mas "App Name", id: 1234567890
+// Returns (name, id, true) on success.
+func parseMASLine(line string) (string, string, bool) {
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, "mas ") {
+		return "", "", false
+	}
+	first := strings.Index(line, `"`)
+	if first < 0 {
+		return "", "", false
+	}
+	second := strings.Index(line[first+1:], `"`)
+	if second < 0 {
+		return "", "", false
+	}
+	name := line[first+1 : first+1+second]
+	_, afterID, found := strings.Cut(line, "id: ")
+	if !found {
+		return "", "", false
+	}
+	fields := strings.Fields(strings.TrimSpace(afterID))
+	if len(fields) == 0 {
+		return "", "", false
+	}
+	id := strings.TrimRight(fields[0], ",;#")
+	return name, id, true
+}
+
+// readBrewfileWithoutMAS reads brewfilePath and returns non-mas lines and parsed mas entries.
+func readBrewfileWithoutMAS(brewfilePath string) ([]string, []masApp, error) {
+	data, err := os.ReadFile(brewfilePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading Brewfile: %w", err)
+	}
+	var nonMas []string
+	var apps []masApp
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if name, id, ok := parseMASLine(line); ok {
+			apps = append(apps, masApp{Name: name, ID: id})
+		} else {
+			nonMas = append(nonMas, line)
+		}
+	}
+	return nonMas, apps, scanner.Err()
+}
+
+// installMASApps installs each App Store app individually, continuing on failure.
+func installMASApps(apps []masApp) {
+	if len(apps) == 0 {
+		return
+	}
+	if _, err := exec.LookPath("mas"); err != nil {
+		fmt.Println("\nNote: mas CLI not found — App Store apps must be installed manually:")
+		for _, app := range apps {
+			fmt.Printf("  - %s (id: %s)\n", app.Name, app.ID)
+		}
+		fmt.Println("Install mas with: brew install mas")
+		return
+	}
+	fmt.Println("\nInstalling App Store apps...")
+	for _, app := range apps {
+		fmt.Printf("  Installing %s...\n", app.Name)
+		c := exec.Command("mas", "install", app.ID)
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		if err := c.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: could not install '%s' — install manually from the App Store\n", app.Name)
+		}
+	}
+}
+
 func newRestoreBrewCmd() *cobra.Command {
 	var source string
 	var dryRun bool
@@ -101,15 +179,34 @@ func newRestoreBrewCmd() *cobra.Command {
 				}
 			}
 
-			// Restore via Brewfile
+			// Restore via Brewfile — mas entries handled separately per-app
 			if fsutil.FileExists(brewfilePath) {
-				fmt.Println("\nRestoring from Brewfile...")
-				bundleCmd := exec.Command("brew", "bundle", "install", "--file="+brewfilePath)
-				bundleCmd.Stdout = os.Stdout
-				bundleCmd.Stderr = os.Stderr
-				if err := bundleCmd.Run(); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: brew bundle install had errors: %v\n", err)
+				nonMasLines, masApps, err := readBrewfileWithoutMAS(brewfilePath)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: could not parse Brewfile: %v\n", err)
+					nonMasLines = nil
+					masApps = nil
 				}
+
+				if len(nonMasLines) > 0 {
+					fmt.Println("\nRestoring formulae, casks and taps from Brewfile...")
+					tmp, tmpErr := os.CreateTemp("", "macback-Brewfile-*")
+					if tmpErr == nil {
+						_, _ = fmt.Fprintln(tmp, strings.Join(nonMasLines, "\n"))
+						_ = tmp.Close()
+						bundleCmd := exec.Command("brew", "bundle", "install", "--file="+tmp.Name())
+						bundleCmd.Stdout = os.Stdout
+						bundleCmd.Stderr = os.Stderr
+						if err := bundleCmd.Run(); err != nil {
+							fmt.Fprintf(os.Stderr, "Warning: brew bundle install had errors: %v\n", err)
+						}
+						_ = os.Remove(tmp.Name())
+					} else {
+						fmt.Fprintf(os.Stderr, "Warning: could not create temp Brewfile: %v\n", tmpErr)
+					}
+				}
+
+				installMASApps(masApps)
 			} else {
 				fmt.Println("No Brewfile found, skipping bundle install.")
 			}

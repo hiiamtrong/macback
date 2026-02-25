@@ -405,10 +405,30 @@ func writeToolBlock(sb *strings.Builder, tool toolDef) {
 }
 
 // writeBrewfileBlock appends the brew bundle install block to sb.
+// mas (App Store) entries are handled separately per-app so one failure does not block others.
 func writeBrewfileBlock(sb *strings.Builder, brewfilePath string) {
 	sb.WriteString("# --- Homebrew packages (Brewfile) ---\n")
 	fmt.Fprintf(sb, "if command -v brew &>/dev/null && [ -f \"%s\" ]; then\n", brewfilePath)
+	// Run brew bundle with mas entries filtered out (formulae, casks, taps only)
 	sb.WriteString("  echo \">>> Installing Homebrew packages...\"\n")
-	fmt.Fprintf(sb, "  brew bundle --file=\"%s\" || echo \"Warning: some packages failed to install — check output above\"\n", brewfilePath)
+	sb.WriteString("  _macback_tmp=$(mktemp)\n")
+	fmt.Fprintf(sb, "  grep -v '^mas ' \"%s\" > \"$_macback_tmp\"\n", brewfilePath)
+	sb.WriteString("  brew bundle --file=\"$_macback_tmp\" || echo \"Warning: some packages failed to install — check output above\"\n")
+	sb.WriteString("  rm -f \"$_macback_tmp\"\n")
+	// Install App Store apps one-by-one so a single failure does not block others
+	fmt.Fprintf(sb, "  if grep -q '^mas ' \"%s\" 2>/dev/null; then\n", brewfilePath)
+	sb.WriteString("    if command -v mas &>/dev/null; then\n")
+	sb.WriteString("      echo \">>> Installing App Store apps...\"\n")
+	fmt.Fprintf(sb, "      while IFS= read -r _masline; do\n")
+	sb.WriteString("        _masid=$(echo \"$_masline\" | grep -oE 'id: [0-9]+' | grep -oE '[0-9]+')\n")
+	sb.WriteString("        _masname=$(echo \"$_masline\" | sed -E 's/mas \"([^\"]+)\".*/\\1/')\n")
+	sb.WriteString("        [ -z \"$_masid\" ] && continue\n")
+	sb.WriteString("        echo \"  Installing $_masname...\"\n")
+	sb.WriteString("        mas install \"$_masid\" || echo \"  Warning: could not install '$_masname' — install manually from the App Store\"\n")
+	fmt.Fprintf(sb, "      done < <(grep '^mas ' \"%s\")\n", brewfilePath)
+	sb.WriteString("    else\n")
+	sb.WriteString("      echo \"  Note: mas CLI not found — install with: brew install mas\"\n")
+	sb.WriteString("    fi\n")
+	sb.WriteString("  fi\n")
 	sb.WriteString("fi\n\n")
 }

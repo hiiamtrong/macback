@@ -103,7 +103,7 @@ func generateMASInstallScript(masList string) string {
 		// Rest is the app name
 		appName := strings.Join(fields[1:], " ")
 		sb.WriteString(fmt.Sprintf("echo \"Installing %s...\"\n", appName))
-		sb.WriteString(fmt.Sprintf("mas install %s\n\n", appID))
+		sb.WriteString(fmt.Sprintf("mas install %s || echo \"Warning: could not install '%s' — install manually from the App Store\"\n\n", appID, appName))
 	}
 
 	return sb.String()
