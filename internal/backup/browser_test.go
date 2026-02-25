@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -347,5 +348,130 @@ func TestBrowserBackup_ContextCancellation(t *testing.T) {
 	_, err := h.Backup(ctx, entries, t.TempDir(), &crypto.NullEncryptor{})
 	if err == nil {
 		t.Error("Backup() should return error when context is cancelled")
+	}
+}
+
+// TestPatchLocalStateContent_AddsUnregisteredProfiles verifies that profile dirs
+// not present in info_cache are injected into the patched Local State.
+func TestPatchLocalStateContent_AddsUnregisteredProfiles(t *testing.T) {
+	dir := t.TempDir()
+
+	// Local State with only Default registered
+	localState := `{"profile":{"info_cache":{"Default":{"name":"Person 1"}}}}`
+	localStatePath := filepath.Join(dir, "Local State")
+	if err := os.WriteFile(localStatePath, []byte(localState), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Profile 1 with a Preferences file (has a human-readable name)
+	p1Dir := filepath.Join(dir, "Profile 1")
+	if err := os.MkdirAll(p1Dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	prefs := `{"profile":{"name":"Work"}}`
+	if err := os.WriteFile(filepath.Join(p1Dir, "Preferences"), []byte(prefs), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Profile 2 without a Preferences file (falls back to dir name)
+	if err := os.MkdirAll(filepath.Join(dir, "Profile 2"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	patched, err := patchLocalStateContent(localStatePath, dir)
+	if err != nil {
+		t.Fatalf("patchLocalStateContent() error: %v", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(patched, &result); err != nil {
+		t.Fatalf("patched JSON invalid: %v", err)
+	}
+
+	cache := result["profile"].(map[string]interface{})["info_cache"].(map[string]interface{})
+
+	if _, ok := cache["Profile 1"]; !ok {
+		t.Error("Profile 1 not added to info_cache")
+	}
+	if _, ok := cache["Profile 2"]; !ok {
+		t.Error("Profile 2 not added to info_cache")
+	}
+	if _, ok := cache["Default"]; !ok {
+		t.Error("Default should be preserved in info_cache")
+	}
+
+	// Verify Profile 1 got name from Preferences
+	p1 := cache["Profile 1"].(map[string]interface{})
+	if p1["name"] != "Work" {
+		t.Errorf("Profile 1 name = %q, want %q", p1["name"], "Work")
+	}
+	// Profile 2 falls back to dir name
+	p2 := cache["Profile 2"].(map[string]interface{})
+	if p2["name"] != "Profile 2" {
+		t.Errorf("Profile 2 name = %q, want %q", p2["name"], "Profile 2")
+	}
+}
+
+// TestPatchLocalStateContent_NoChangeWhenAllRegistered verifies the function
+// returns the original bytes unchanged when all profile dirs are already in info_cache.
+func TestPatchLocalStateContent_NoChangeWhenAllRegistered(t *testing.T) {
+	dir := t.TempDir()
+
+	localState := `{"profile":{"info_cache":{"Default":{"name":"Person 1"}}}}`
+	localStatePath := filepath.Join(dir, "Local State")
+	if err := os.WriteFile(localStatePath, []byte(localState), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// No extra Profile N dirs — nothing to patch
+	patched, err := patchLocalStateContent(localStatePath, dir)
+	if err != nil {
+		t.Fatalf("patchLocalStateContent() error: %v", err)
+	}
+	if string(patched) != localState {
+		t.Errorf("expected unchanged output, got: %s", patched)
+	}
+}
+
+// TestBackupBrowser_LocalStatePatched verifies that Backup() writes a patched
+// Local State containing all discovered profile dirs.
+func TestBackupBrowser_LocalStatePatched(t *testing.T) {
+	browserDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Local State with only Default registered
+	makeFile(t, filepath.Join(browserDir, "Local State"),
+		[]byte(`{"profile":{"info_cache":{"Default":{"name":"Person 1"}}}}`))
+
+	// Profile 1 dir with Preferences
+	p1 := filepath.Join(browserDir, "Profile 1")
+	if err := os.MkdirAll(p1, 0755); err != nil {
+		t.Fatal(err)
+	}
+	makeFile(t, filepath.Join(p1, "Preferences"), []byte(`{"profile":{"name":"Work"}}`))
+	makeFile(t, filepath.Join(p1, "Bookmarks"), []byte(`{}`))
+
+	cfg := defaultBrowserCfg()
+	entries := discoverBrowserRootFiles("Chrome", browserDir)
+	entries = append(entries, discoverBrowserFiles("Chrome", p1, cfg)...)
+
+	h := &BrowserHandler{}
+	_, err := h.Backup(context.Background(), entries, destDir, &crypto.NullEncryptor{})
+	if err != nil {
+		t.Fatalf("Backup() error: %v", err)
+	}
+
+	savedPath := filepath.Join(destDir, "Chrome", "Local State")
+	data, err := os.ReadFile(savedPath)
+	if err != nil {
+		t.Fatalf("saved Local State not found: %v", err)
+	}
+
+	var saved map[string]interface{}
+	if err := json.Unmarshal(data, &saved); err != nil {
+		t.Fatalf("saved Local State invalid JSON: %v", err)
+	}
+	cache := saved["profile"].(map[string]interface{})["info_cache"].(map[string]interface{})
+	if _, ok := cache["Profile 1"]; !ok {
+		t.Error("Profile 1 not injected into backed-up Local State")
 	}
 }

@@ -2,6 +2,9 @@ package backup
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -214,6 +217,105 @@ func (h *BrowserHandler) Discover(cfg *config.CategoryConfig) ([]FileEntry, erro
 	return entries, nil
 }
 
+// patchLocalStateContent reads a Chrome "Local State" JSON file and injects any
+// profile directories found in browserDir that are not yet in info_cache.
+// This ensures that all backed-up profiles are registered after a restore.
+func patchLocalStateContent(localStatePath, browserDir string) ([]byte, error) {
+	raw, err := os.ReadFile(localStatePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var state map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &state); err != nil {
+		return nil, err
+	}
+
+	// Navigate profile.info_cache
+	var profileSection map[string]json.RawMessage
+	if v, ok := state["profile"]; ok {
+		_ = json.Unmarshal(v, &profileSection)
+	}
+	if profileSection == nil {
+		profileSection = make(map[string]json.RawMessage)
+	}
+
+	var infoCache map[string]json.RawMessage
+	if v, ok := profileSection["info_cache"]; ok {
+		_ = json.Unmarshal(v, &infoCache)
+	}
+	if infoCache == nil {
+		infoCache = make(map[string]json.RawMessage)
+	}
+
+	// Scan for profile directories not yet registered
+	dirEntries, err := os.ReadDir(browserDir)
+	if err != nil {
+		return raw, nil // return original on read error
+	}
+
+	added := 0
+	for _, e := range dirEntries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if name != "Default" && name != "Guest Profile" && !strings.HasPrefix(name, "Profile ") {
+			continue
+		}
+		if _, exists := infoCache[name]; exists {
+			continue
+		}
+
+		// Try to get the human-readable profile name from Preferences
+		profileName := name
+		prefsPath := filepath.Join(browserDir, name, "Preferences")
+		if prefsData, err := os.ReadFile(prefsPath); err == nil {
+			var prefs struct {
+				Profile struct {
+					Name string `json:"name"`
+				} `json:"profile"`
+			}
+			if json.Unmarshal(prefsData, &prefs) == nil && prefs.Profile.Name != "" {
+				profileName = prefs.Profile.Name
+			}
+		}
+
+		entry := map[string]interface{}{
+			"name":                  profileName,
+			"is_using_default_name": false,
+			"active_time":           0.0,
+		}
+		entryJSON, _ := json.Marshal(entry)
+		infoCache[name] = entryJSON
+		added++
+	}
+
+	if added == 0 {
+		return raw, nil // nothing changed
+	}
+
+	// Rebuild profile section
+	infoCacheJSON, err := json.Marshal(infoCache)
+	if err != nil {
+		return raw, nil
+	}
+	profileSection["info_cache"] = infoCacheJSON
+	profileSectionJSON, err := json.Marshal(profileSection)
+	if err != nil {
+		return raw, nil
+	}
+	state["profile"] = profileSectionJSON
+
+	return json.Marshal(state)
+}
+
+// sha256HexBytes returns the hex-encoded SHA-256 hash of data.
+func sha256HexBytes(data []byte) string {
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
+}
+
 // Backup copies each browser profile file to the destination directory.
 func (h *BrowserHandler) Backup(ctx context.Context, entries []FileEntry, dest string, enc crypto.Encryptor) (*CategoryResult, error) {
 	result := &CategoryResult{
@@ -252,6 +354,24 @@ func (h *BrowserHandler) Backup(ctx context.Context, entries []FileEntry, dest s
 			}
 			me.Path = filepath.Join("browser", entry.RelPath) + filepath.Ext(encPath)
 			me.Encrypted = true
+		} else if filepath.Base(entry.RelPath) == "Local State" {
+			// Patch Local State to include all discovered profile dirs before saving.
+			browserDir := filepath.Dir(entry.SourcePath)
+			patched, err := patchLocalStateContent(entry.SourcePath, browserDir)
+			if err != nil {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("patching Local State %s: %v", entry.RelPath, err))
+				continue
+			}
+			if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("creating dir for %s: %v", entry.RelPath, err))
+				continue
+			}
+			if err := os.WriteFile(dstPath, patched, entry.Mode); err != nil {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("writing Local State %s: %v", entry.RelPath, err))
+				continue
+			}
+			me.SHA256 = sha256HexBytes(patched)
+			me.Path = filepath.Join("browser", entry.RelPath)
 		} else {
 			if err := fsutil.CopyFile(entry.SourcePath, dstPath); err != nil {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("copying %s: %v", entry.RelPath, err))
