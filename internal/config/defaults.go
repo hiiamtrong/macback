@@ -12,6 +12,8 @@ import (
 func DefaultConfig() *Config {
 	return &Config{
 		BackupDest: "~/macback-backups",
+		Zip:        false,
+		ZipOnly:    false,
 		Categories: map[string]*CategoryConfig{
 			"ssh": {
 				Enabled: true,

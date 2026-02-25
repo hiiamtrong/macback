@@ -21,6 +21,8 @@ func newBackupCmd() *cobra.Command {
 	var categories string
 	var dryRun bool
 	var passphraseFile string
+	var zipFlag bool
+	var zipOnlyFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "backup",
@@ -86,6 +88,24 @@ func newBackupCmd() *cobra.Command {
 			fmt.Printf("\nBackup complete to: %s\n", fsutil.ContractPath(expandedDest))
 			fmt.Printf("Total files: %d\n", manifest.TotalFiles())
 			fmt.Printf("Encrypted: %d\n", manifest.TotalEncrypted())
+
+			// Zip the backup if requested (--zip-only implies --zip)
+			doZipOnly := zipOnlyFlag || cfg.ZipOnly
+			doZip := zipFlag || cfg.Zip || doZipOnly
+			if doZip {
+				destZip := expandedDest + ".zip"
+				log.Info("Compressing backup...")
+				if err := fsutil.ZipDir(expandedDest, destZip); err != nil {
+					log.Warn("zip failed: %v", err)
+				} else {
+					fmt.Printf("Compressed: %s\n", fsutil.ContractPath(destZip))
+					if doZipOnly {
+						if err := os.RemoveAll(expandedDest); err != nil {
+							log.Warn("removing uncompressed dir: %v", err)
+						}
+					}
+				}
+			}
 			return nil
 		},
 	}
@@ -94,6 +114,8 @@ func newBackupCmd() *cobra.Command {
 	cmd.Flags().StringVar(&categories, "categories", "", "comma-separated categories to back up")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be backed up without doing it")
 	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", "read passphrase from file")
+	cmd.Flags().BoolVar(&zipFlag, "zip", false, "compress backup to a .zip archive")
+	cmd.Flags().BoolVar(&zipOnlyFlag, "zip-only", false, "compress to .zip and remove uncompressed dir")
 
 	return cmd
 }

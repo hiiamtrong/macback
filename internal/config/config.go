@@ -19,6 +19,8 @@ var (
 type Config struct {
 	BackupDest string                     `yaml:"backup_dest"`
 	MaxBackups int                        `yaml:"max_backups"`
+	Zip        bool                       `yaml:"zip"`
+	ZipOnly    bool                       `yaml:"zip_only"`
 	Categories map[string]*CategoryConfig `yaml:"categories"`
 	Encryption EncryptionConfig           `yaml:"encryption"`
 }

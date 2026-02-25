@@ -287,6 +287,14 @@ func (e *Engine) cleanOldBackups(dest string) error {
 		if err := os.RemoveAll(old); err != nil {
 			e.log.Warn("failed to remove old backup %s: %v", old, err)
 		}
+		// Also remove companion .zip if present
+		companion := old + ".zip"
+		if fsutil.FileExists(companion) {
+			e.log.Verbose("Removing companion zip: %s", fsutil.ContractPath(companion))
+			if err := os.Remove(companion); err != nil {
+				e.log.Warn("failed to remove companion zip %s: %v", companion, err)
+			}
+		}
 	}
 
 	return nil

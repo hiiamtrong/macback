@@ -43,9 +43,14 @@ make install   # copies binary to /usr/local/bin/
 macback init                              # Create ~/.macback.yaml
 macback backup                            # Back up everything
 macback backup --dry-run                  # Preview what would be backed up
+macback backup --zip                      # Back up and compress to a .zip archive
+macback backup --zip-only                 # Back up, compress to .zip, remove uncompressed dir
 macback diff -s ~/macback-backups         # Compare backup vs current system
+macback diff -s ~/macback-backups.zip     # Diff from a .zip archive
 macback restore -s ~/macback-backups      # Restore from backup
+macback restore -s ~/macback-backups.zip  # Restore from a .zip archive
 macback list -s ~/macback-backups         # List backup contents
+macback list -s ~/macback-backups.zip     # List contents of a .zip archive
 ```
 
 ## Commands
@@ -53,10 +58,10 @@ macback list -s ~/macback-backups         # List backup contents
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
 | `init` | Generate default config file | `-o` (output path), `--force` (overwrite) |
-| `backup` | Back up configuration files | `-d` (destination), `--categories`, `--dry-run`, `--passphrase-file` |
-| `restore` | Restore from a backup folder | `-s` (source, required), `--categories`, `--force`, `--dry-run`, `--passphrase-file` |
-| `diff` | Compare backup vs current system | `-s` (source, required), `--categories` |
-| `list` | List contents of a backup | `-s` (source, required), `--categories`, `--show-secrets` |
+| `backup` | Back up configuration files | `-d` (destination), `--categories`, `--dry-run`, `--passphrase-file`, `--zip`, `--zip-only` |
+| `restore` | Restore from a backup folder | `-s` (source or .zip, required), `--categories`, `--force`, `--dry-run`, `--passphrase-file` |
+| `diff` | Compare backup vs current system | `-s` (source or .zip, required), `--categories` |
+| `list` | List contents of a backup | `-s` (source or .zip, required), `--categories`, `--show-secrets` |
 | `version` | Show version information | |
 | `completion` | Generate shell completion scripts | `bash`, `zsh`, `fish` |
 

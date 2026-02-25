@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/hiiamtrong/macback/internal/backup"
 	"github.com/hiiamtrong/macback/internal/crypto"
-	"github.com/hiiamtrong/macback/internal/fsutil"
 	"github.com/hiiamtrong/macback/internal/logger"
 	"github.com/hiiamtrong/macback/internal/restore"
 )
@@ -25,18 +24,19 @@ func newRestoreCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restore",
 		Short: "Restore configuration files from backup",
-		Long:  "Restore macOS configuration files from a backup folder.",
+		Long:  "Restore macOS configuration files from a backup folder or .zip archive.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if source == "" {
 				return fmt.Errorf("--source is required")
 			}
 
-			expandedSource, err := fsutil.ExpandPath(source)
+			backupDir, cleanup, err := resolveBackupSource(source)
 			if err != nil {
-				return fmt.Errorf("expanding source path: %w", err)
+				return err
 			}
+			defer cleanup()
 
-			manifest, err := backup.ReadManifest(expandedSource)
+			manifest, err := backup.ReadManifest(backupDir)
 			if err != nil {
 				return fmt.Errorf("reading backup manifest: %w", err)
 			}
@@ -50,7 +50,7 @@ func newRestoreCmd() *cobra.Command {
 
 			var dec crypto.Decryptor
 			if manifest.HasEncryptedFiles() {
-				dec, err = getDecryptorWithRetry(manifest, expandedSource, passphraseFile)
+				dec, err = getDecryptorWithRetry(manifest, backupDir, passphraseFile)
 				if err != nil {
 					return err
 				}
@@ -62,7 +62,7 @@ func newRestoreCmd() *cobra.Command {
 			engine := restore.NewEngine(dec, log)
 
 			if dryRun {
-				diffs, err := engine.Diff(context.Background(), manifest, expandedSource, categoryFilter)
+				diffs, err := engine.Diff(context.Background(), manifest, backupDir, categoryFilter)
 				if err != nil {
 					return err
 				}
@@ -70,7 +70,7 @@ func newRestoreCmd() *cobra.Command {
 				return nil
 			}
 
-			result, err := engine.Run(context.Background(), manifest, expandedSource, categoryFilter, force)
+			result, err := engine.Run(context.Background(), manifest, backupDir, categoryFilter, force)
 			if err != nil {
 				return err
 			}
@@ -83,7 +83,7 @@ func newRestoreCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&source, "source", "s", "", "backup source folder (required)")
+	cmd.Flags().StringVarP(&source, "source", "s", "", "backup source folder or .zip archive (required)")
 	cmd.Flags().StringVar(&categories, "categories", "", "comma-separated categories to restore")
 	cmd.Flags().BoolVar(&force, "force", false, "skip confirmation prompts")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview what would be restored")

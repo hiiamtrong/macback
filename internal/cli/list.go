@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/hiiamtrong/macback/internal/backup"
-	"github.com/hiiamtrong/macback/internal/fsutil"
 )
 
 func newListCmd() *cobra.Command {
@@ -17,18 +16,19 @@ func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List contents of a backup",
-		Long:  "Display the contents of a backup folder organized by category.",
+		Long:  "Display the contents of a backup folder or .zip archive organized by category.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if source == "" {
 				return fmt.Errorf("--source is required")
 			}
 
-			expandedSource, err := fsutil.ExpandPath(source)
+			backupDir, cleanup, err := resolveBackupSource(source)
 			if err != nil {
-				return fmt.Errorf("expanding source path: %w", err)
+				return err
 			}
+			defer cleanup()
 
-			manifest, err := backup.ReadManifest(expandedSource)
+			manifest, err := backup.ReadManifest(backupDir)
 			if err != nil {
 				return fmt.Errorf("reading backup manifest: %w", err)
 			}
@@ -71,7 +71,7 @@ func newListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&source, "source", "s", "", "backup folder to inspect (required)")
+	cmd.Flags().StringVarP(&source, "source", "s", "", "backup folder or .zip archive to inspect (required)")
 	cmd.Flags().StringVar(&categories, "categories", "", "filter by categories")
 	cmd.Flags().BoolVar(&showSecrets, "show-secrets", false, "indicate encrypted files")
 	_ = cmd.MarkFlagRequired("source")

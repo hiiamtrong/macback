@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/hiiamtrong/macback/internal/backup"
 	"github.com/hiiamtrong/macback/internal/crypto"
-	"github.com/hiiamtrong/macback/internal/fsutil"
 	"github.com/hiiamtrong/macback/internal/logger"
 	"github.com/hiiamtrong/macback/internal/restore"
 )
@@ -20,18 +19,19 @@ func newDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Show differences between backup and current system",
-		Long:  "Compare a backup folder with the current system state.",
+		Long:  "Compare a backup folder or .zip archive with the current system state.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if source == "" {
 				return fmt.Errorf("--source is required")
 			}
 
-			expandedSource, err := fsutil.ExpandPath(source)
+			backupDir, cleanup, err := resolveBackupSource(source)
 			if err != nil {
-				return fmt.Errorf("expanding source path: %w", err)
+				return err
 			}
+			defer cleanup()
 
-			manifest, err := backup.ReadManifest(expandedSource)
+			manifest, err := backup.ReadManifest(backupDir)
 			if err != nil {
 				return fmt.Errorf("reading backup manifest: %w", err)
 			}
@@ -43,7 +43,7 @@ func newDiffCmd() *cobra.Command {
 
 			log := logger.New(verbose)
 			engine := restore.NewEngine(&crypto.NullDecryptor{}, log)
-			diffs, err := engine.Diff(context.Background(), manifest, expandedSource, categoryFilter)
+			diffs, err := engine.Diff(context.Background(), manifest, backupDir, categoryFilter)
 			if err != nil {
 				return err
 			}
@@ -53,7 +53,7 @@ func newDiffCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&source, "source", "s", "", "backup source folder (required)")
+	cmd.Flags().StringVarP(&source, "source", "s", "", "backup source folder or .zip archive (required)")
 	cmd.Flags().StringVar(&categories, "categories", "", "comma-separated categories")
 	_ = cmd.MarkFlagRequired("source")
 
