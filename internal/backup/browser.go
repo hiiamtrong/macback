@@ -310,6 +310,39 @@ func patchLocalStateContent(localStatePath, browserDir string) ([]byte, error) {
 	return json.Marshal(state)
 }
 
+// PatchAllLocalStates finds each known browser's Local State on the current
+// machine and patches its info_cache to register any profile directories that
+// exist on disk but are not yet recorded.  This is idempotent and safe to run
+// after a restore so that old backups (made before the patching was introduced)
+// still produce a fully functional Chrome profile picker.
+func PatchAllLocalStates() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+	appSupport := filepath.Join(home, "Library", "Application Support")
+
+	for _, b := range knownBrowsers() {
+		browserDir := filepath.Join(appSupport, b.AppSupportPath)
+		localStatePath := filepath.Join(browserDir, "Local State")
+		if _, err := os.Stat(localStatePath); err != nil {
+			continue
+		}
+
+		patched, err := patchLocalStateContent(localStatePath, browserDir)
+		if err != nil {
+			continue
+		}
+
+		info, _ := os.Stat(localStatePath)
+		mode := os.FileMode(0644)
+		if info != nil {
+			mode = info.Mode().Perm()
+		}
+		_ = os.WriteFile(localStatePath, patched, mode)
+	}
+}
+
 // sha256HexBytes returns the hex-encoded SHA-256 hash of data.
 func sha256HexBytes(data []byte) string {
 	h := sha256.Sum256(data)

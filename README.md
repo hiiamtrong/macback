@@ -51,6 +51,7 @@ macback restore -s ~/macback-backups      # Restore from backup
 macback restore -s ~/macback-backups.zip  # Restore from a .zip archive
 macback list -s ~/macback-backups         # List backup contents
 macback list -s ~/macback-backups.zip     # List contents of a .zip archive
+macback bootstrap -s ~/macback-backups    # Generate setup script for a fresh machine
 ```
 
 ## Commands
@@ -62,6 +63,7 @@ macback list -s ~/macback-backups.zip     # List contents of a .zip archive
 | `restore` | Restore from a backup folder | `-s` (source or .zip, required), `--categories`, `--force`, `--dry-run`, `--passphrase-file` |
 | `diff` | Compare backup vs current system | `-s` (source or .zip, required), `--categories` |
 | `list` | List contents of a backup | `-s` (source or .zip, required), `--categories`, `--show-secrets` |
+| `bootstrap` | Generate a setup script for a fresh machine | `-s` (source or .zip, required), `-o` (output path), `--run` |
 | `version` | Show version information | |
 | `completion` | Generate shell completion scripts | `bash`, `zsh`, `fish` |
 
