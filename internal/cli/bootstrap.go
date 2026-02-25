@@ -20,6 +20,24 @@ type toolDef struct {
 	InstallCmds []string // bash lines that install the tool
 }
 
+// zshPluginDef describes a known third-party Oh My Zsh plugin that must be
+// cloned into $ZSH_CUSTOM/plugins/ (built-in plugins need no extra install).
+type zshPluginDef struct {
+	Name     string // plugin directory name and how it appears in plugins=(...)
+	CloneURL string // git repository to clone
+}
+
+// knownZshPlugins lists popular third-party Oh My Zsh plugins in the order
+// they should be installed.
+var knownZshPlugins = []zshPluginDef{
+	{"zsh-autosuggestions", "https://github.com/zsh-users/zsh-autosuggestions"},
+	{"zsh-syntax-highlighting", "https://github.com/zsh-users/zsh-syntax-highlighting"},
+	{"fast-syntax-highlighting", "https://github.com/zdharma-continuum/fast-syntax-highlighting"},
+	{"zsh-completions", "https://github.com/zsh-users/zsh-completions"},
+	{"zsh-history-substring-search", "https://github.com/zsh-users/zsh-history-substring-search"},
+	{"zsh-autocomplete", "https://github.com/marlonrichert/zsh-autocomplete"},
+}
+
 // bootstrapTools lists developer tools in installation order.
 // Homebrew must be first because rbenv and pyenv install via brew.
 var bootstrapTools = []toolDef{
@@ -121,15 +139,17 @@ func runBootstrap(source, outputPath string, run bool) error {
 		return err
 	}
 
-	detected := detectToolsInShellFiles(filepath.Join(backupDir, "shell"))
+	shellDir := filepath.Join(backupDir, "shell")
+	detected := detectToolsInShellFiles(shellDir)
+	plugins := detectZshPlugins(shellDir)
 	scriptBrewfile := copyBrewfileForScript(filepath.Join(backupDir, "homebrew", "Brewfile"), outputPath)
 
-	script := generateBootstrapScript(detected, scriptBrewfile)
+	script := generateBootstrapScript(detected, plugins, scriptBrewfile)
 	if err := os.WriteFile(outputPath, []byte(script), 0755); err != nil {
 		return fmt.Errorf("writing setup script: %w", err)
 	}
 
-	printBootstrapSummary(detected, scriptBrewfile, outputPath)
+	printBootstrapSummary(detected, plugins, scriptBrewfile, outputPath)
 
 	if run {
 		return execBootstrapScript(outputPath)
@@ -168,8 +188,8 @@ func copyBrewfileForScript(brewfilePath, outputPath string) string {
 	return dest
 }
 
-// printBootstrapSummary prints the list of tools included in the setup script.
-func printBootstrapSummary(detected map[string]bool, scriptBrewfile, outputPath string) {
+// printBootstrapSummary prints the list of tools and plugins in the setup script.
+func printBootstrapSummary(detected map[string]bool, plugins []zshPluginDef, scriptBrewfile, outputPath string) {
 	fmt.Printf("Setup script written to: %s\n", outputPath)
 	if scriptBrewfile != "" {
 		fmt.Printf("Brewfile copied to:      %s\n", scriptBrewfile)
@@ -184,10 +204,17 @@ func printBootstrapSummary(detected map[string]bool, scriptBrewfile, outputPath 
 		if isToolInstalled(tool) {
 			status = "already installed"
 		}
-		fmt.Printf("  %-20s [%s]\n", tool.Name, status)
+		fmt.Printf("  %-30s [%s]\n", tool.Name, status)
+	}
+	for _, p := range plugins {
+		status := "not installed"
+		if isZshPluginInstalled(p) {
+			status = "already installed"
+		}
+		fmt.Printf("  %-30s [%s]\n", "zsh: "+p.Name, status)
 	}
 	if scriptBrewfile != "" {
-		fmt.Printf("  %-20s [will run brew bundle]\n", "Homebrew packages")
+		fmt.Printf("  %-30s [will run brew bundle]\n", "Homebrew packages")
 	}
 	fmt.Printf("\nTo run the setup:\n  bash %s\n", outputPath)
 }
@@ -203,6 +230,50 @@ func execBootstrapScript(outputPath string) error {
 		return fmt.Errorf("setup script failed: %w", err)
 	}
 	return nil
+}
+
+// detectZshPlugins reads shell config files in shellDir and returns the subset
+// of knownZshPlugins whose names appear in the file contents.
+func detectZshPlugins(shellDir string) []zshPluginDef {
+	entries, err := os.ReadDir(shellDir)
+	if err != nil {
+		return nil
+	}
+
+	found := make(map[string]bool)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		content, err := os.ReadFile(filepath.Join(shellDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		text := string(content)
+		for _, p := range knownZshPlugins {
+			if strings.Contains(text, p.Name) {
+				found[p.Name] = true
+			}
+		}
+	}
+
+	var result []zshPluginDef
+	for _, p := range knownZshPlugins {
+		if found[p.Name] {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+// isZshPluginInstalled reports whether the plugin directory already exists
+// under $HOME/.oh-my-zsh/custom/plugins/.
+func isZshPluginInstalled(p zshPluginDef) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	return fsutil.DirExists(filepath.Join(home, ".oh-my-zsh", "custom", "plugins", p.Name))
 }
 
 // detectToolsInShellFiles reads all shell config files in shellDir and returns
@@ -277,7 +348,7 @@ func toolBashCondition(tool toolDef) string {
 }
 
 // generateBootstrapScript returns the full content of the setup shell script.
-func generateBootstrapScript(detected map[string]bool, brewfilePath string) string {
+func generateBootstrapScript(detected map[string]bool, plugins []zshPluginDef, brewfilePath string) string {
 	var sb strings.Builder
 
 	sb.WriteString("#!/bin/bash\n")
@@ -294,6 +365,10 @@ func generateBootstrapScript(detected map[string]bool, brewfilePath string) stri
 		writeToolBlock(&sb, tool)
 	}
 
+	if len(plugins) > 0 {
+		writeZshPluginsBlock(&sb, plugins)
+	}
+
 	if brewfilePath != "" {
 		writeBrewfileBlock(&sb, brewfilePath)
 	}
@@ -303,6 +378,20 @@ func generateBootstrapScript(detected map[string]bool, brewfilePath string) stri
 	sb.WriteString("echo \"Please restart your terminal or run: source ~/.zshrc\"\n")
 
 	return sb.String()
+}
+
+// writeZshPluginsBlock appends idempotent git-clone blocks for each Oh My Zsh plugin.
+func writeZshPluginsBlock(sb *strings.Builder, plugins []zshPluginDef) {
+	sb.WriteString("# --- Oh My Zsh plugins ---\n")
+	sb.WriteString("if [ -d \"$HOME/.oh-my-zsh\" ]; then\n")
+	sb.WriteString("  ZSH_CUSTOM=\"${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}\"\n")
+	for _, p := range plugins {
+		fmt.Fprintf(sb, "  if [ ! -d \"$ZSH_CUSTOM/plugins/%s\" ]; then\n", p.Name)
+		fmt.Fprintf(sb, "    echo \">>> Installing %s...\"\n", p.Name)
+		fmt.Fprintf(sb, "    git clone %s \"$ZSH_CUSTOM/plugins/%s\"\n", p.CloneURL, p.Name)
+		sb.WriteString("  fi\n")
+	}
+	sb.WriteString("fi\n\n")
 }
 
 // writeToolBlock appends an idempotent install block for a single tool to sb.
