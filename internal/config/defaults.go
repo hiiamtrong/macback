@@ -121,9 +121,16 @@ func DefaultConfig() *Config {
 			"browser": {
 				Enabled:       true,
 				MaxFileSizeMB: 50,
-				// Built-in cache dirs (Cache, Code Cache, GPUCache, etc.) are always excluded.
-				// Add extra excludes here, e.g. "History" for privacy.
-				Exclude: []string{},
+				// Built-in ephemeral dirs (Cache, IndexedDB, File System, etc.) are always excluded.
+				// The list below excludes large non-essential data; remove entries to keep them.
+				Exclude: []string{
+					"Extensions",     // re-downloaded from store on sign-in
+					"Favicons",       // favicon cache
+					"History",        // browsing history (remove to keep)
+					"Local Storage",  // web app localStorage (large, ephemeral)
+					"Sessions",       // session restore data
+					"WebStorage",     // web storage database
+				},
 			},
 		},
 		Encryption: EncryptionConfig{

@@ -46,17 +46,23 @@ func knownBrowsers() []browserDef {
 // builtinCacheDirs is the set of directory names that are always excluded
 // regardless of user configuration.
 var builtinCacheDirs = map[string]bool{
+	// GPU / shader caches
 	"Cache":                 true,
 	"Code Cache":            true,
 	"GPUCache":              true,
 	"DawnCache":             true,
 	"DawnGraphiteCache":     true,
+	"DawnWebGPUCache":       true,
 	"GraphiteDawnCache":     true,
 	"GrShaderCache":         true,
 	"CacheStorage":          true,
 	"ScriptCache":           true,
 	"PnaclTranslationCache": true,
 	"ShaderCache":           true,
+	// Large ephemeral storage — rebuilt automatically by browser/web apps
+	"IndexedDB":         true,
+	"File System":       true,
+	"Shared Dictionary": true,
 }
 
 // isBuiltinCacheDir reports whether name is a well-known Chromium cache directory.
