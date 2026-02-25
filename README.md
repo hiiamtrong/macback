@@ -12,11 +12,13 @@ A single-binary CLI tool that backs up macOS configuration, dotfiles, browser pr
 
 ```bash
 # Apple Silicon (M1/M2/M3)
-curl -L https://github.com/hiiamtrong/macback/releases/latest/download/macback_$(curl -s https://api.github.com/repos/hiiamtrong/macback/releases/latest | grep tag_name | cut -d'"' -f4)_darwin_arm64.tar.gz | tar xz
+VERSION=$(curl -s https://api.github.com/repos/hiiamtrong/macback/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')
+curl -L "https://github.com/hiiamtrong/macback/releases/latest/download/macback_${VERSION}_darwin_arm64.tar.gz" | tar xz
 sudo mv macback /usr/local/bin/
 
 # Intel Mac
-curl -L https://github.com/hiiamtrong/macback/releases/latest/download/macback_$(curl -s https://api.github.com/repos/hiiamtrong/macback/releases/latest | grep tag_name | cut -d'"' -f4)_darwin_amd64.tar.gz | tar xz
+VERSION=$(curl -s https://api.github.com/repos/hiiamtrong/macback/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')
+curl -L "https://github.com/hiiamtrong/macback/releases/latest/download/macback_${VERSION}_darwin_amd64.tar.gz" | tar xz
 sudo mv macback /usr/local/bin/
 ```
 
