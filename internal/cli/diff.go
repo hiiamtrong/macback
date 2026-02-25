@@ -43,7 +43,7 @@ func newDiffCmd() *cobra.Command {
 
 			log := logger.New(verbose)
 			engine := restore.NewEngine(&crypto.NullDecryptor{}, log)
-			diffs, err := engine.Diff(context.Background(), manifest, backupDir, categoryFilter)
+			diffs, err := engine.Diff(context.Background(), manifest, backupDir, categoryFilter, false)
 			if err != nil {
 				return err
 			}

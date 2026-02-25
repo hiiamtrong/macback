@@ -52,7 +52,7 @@ func NewEngine(dec crypto.Decryptor, log *logger.Logger) *Engine {
 }
 
 // Diff compares the backup with the current system state.
-func (e *Engine) Diff(ctx context.Context, manifest *backup.Manifest, backupDir string, categoryFilter []string) ([]DiffEntry, error) {
+func (e *Engine) Diff(ctx context.Context, manifest *backup.Manifest, backupDir string, categoryFilter []string, secretsOnly bool) ([]DiffEntry, error) {
 	var diffs []DiffEntry
 
 	filterMap := buildFilterMap(categoryFilter)
@@ -66,6 +66,9 @@ func (e *Engine) Diff(ctx context.Context, manifest *backup.Manifest, backupDir 
 		}
 
 		for _, f := range cat.Files {
+			if secretsOnly && !f.Encrypted {
+				continue
+			}
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
@@ -130,7 +133,7 @@ func (e *Engine) Diff(ctx context.Context, manifest *backup.Manifest, backupDir 
 }
 
 // Run restores files from the backup to the system.
-func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir string, categoryFilter []string, force bool) (*Result, error) {
+func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir string, categoryFilter []string, force, secretsOnly bool) (*Result, error) {
 	result := &Result{}
 
 	filterMap := buildFilterMap(categoryFilter)
@@ -150,6 +153,11 @@ func (e *Engine) Run(ctx context.Context, manifest *backup.Manifest, backupDir s
 			case <-ctx.Done():
 				return result, ctx.Err()
 			default:
+			}
+
+			if secretsOnly && !f.Encrypted {
+				result.Skipped++
+				continue
 			}
 
 			backupFilePath := filepath.Join(backupDir, f.Path)

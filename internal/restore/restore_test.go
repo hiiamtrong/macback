@@ -118,7 +118,7 @@ func TestDiffIdentical(t *testing.T) {
 	}
 
 	engine := NewEngine(&crypto.NullDecryptor{}, logger.New(false))
-	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil)
+	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil, false)
 	if err != nil {
 		t.Fatalf("Diff() error: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestDiffNew(t *testing.T) {
 	}
 
 	engine := NewEngine(&crypto.NullDecryptor{}, logger.New(false))
-	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil)
+	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil, false)
 	if err != nil {
 		t.Fatalf("Diff() error: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestDiffMissing(t *testing.T) {
 	}
 
 	engine := NewEngine(&crypto.NullDecryptor{}, logger.New(false))
-	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil)
+	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil, false)
 	if err != nil {
 		t.Fatalf("Diff() error: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestDiffModified(t *testing.T) {
 	}
 
 	engine := NewEngine(&crypto.NullDecryptor{}, logger.New(false))
-	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil)
+	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil, false)
 	if err != nil {
 		t.Fatalf("Diff() error: %v", err)
 	}
@@ -311,7 +311,7 @@ func TestDiffWithCategoryFilter(t *testing.T) {
 	engine := NewEngine(&crypto.NullDecryptor{}, logger.New(false))
 
 	// Filter to only ssh
-	diffs, err := engine.Diff(context.Background(), manifest, backupDir, []string{"ssh"})
+	diffs, err := engine.Diff(context.Background(), manifest, backupDir, []string{"ssh"}, false)
 	if err != nil {
 		t.Fatalf("Diff() error: %v", err)
 	}
@@ -346,7 +346,7 @@ func TestDiffSkipsNotBackedUp(t *testing.T) {
 	}
 
 	engine := NewEngine(&crypto.NullDecryptor{}, logger.New(false))
-	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil)
+	diffs, err := engine.Diff(context.Background(), manifest, backupDir, nil, false)
 	if err != nil {
 		t.Fatalf("Diff() error: %v", err)
 	}

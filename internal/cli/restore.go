@@ -19,6 +19,7 @@ func newRestoreCmd() *cobra.Command {
 	var categories string
 	var force bool
 	var dryRun bool
+	var secretsOnly bool
 	var passphraseFile string
 
 	cmd := &cobra.Command{
@@ -62,7 +63,7 @@ func newRestoreCmd() *cobra.Command {
 			engine := restore.NewEngine(dec, log)
 
 			if dryRun {
-				diffs, err := engine.Diff(context.Background(), manifest, backupDir, categoryFilter)
+				diffs, err := engine.Diff(context.Background(), manifest, backupDir, categoryFilter, secretsOnly)
 				if err != nil {
 					return err
 				}
@@ -70,7 +71,7 @@ func newRestoreCmd() *cobra.Command {
 				return nil
 			}
 
-			result, err := engine.Run(context.Background(), manifest, backupDir, categoryFilter, force)
+			result, err := engine.Run(context.Background(), manifest, backupDir, categoryFilter, force, secretsOnly)
 			if err != nil {
 				return err
 			}
@@ -92,6 +93,7 @@ func newRestoreCmd() *cobra.Command {
 	cmd.Flags().StringVar(&categories, "categories", "", "comma-separated categories to restore")
 	cmd.Flags().BoolVar(&force, "force", false, "skip confirmation prompts")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview what would be restored")
+	cmd.Flags().BoolVar(&secretsOnly, "secrets-only", false, "only restore encrypted files (e.g. .env after git clone)")
 	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", "read passphrase from file")
 	_ = cmd.MarkFlagRequired("source")
 
