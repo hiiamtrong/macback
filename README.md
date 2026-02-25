@@ -1,31 +1,38 @@
-# macback - macOS Config Backup & Restore Tool
+# macback — macOS Config Backup & Restore
 
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen.svg)]()
+[![Release](https://img.shields.io/github/v/release/hiiamtrong/macback)](https://github.com/hiiamtrong/macback/releases)
 
-A single-binary CLI tool that backs up macOS configuration files (SSH keys, shell configs, git settings, dotfiles, Homebrew packages, app preferences) to a folder with [age](https://github.com/FiloSottile/age)-encrypted secrets, and restores them easily.
+A single-binary CLI tool that backs up macOS configuration, dotfiles, browser profiles, and project source code to a local folder with [age](https://github.com/FiloSottile/age)-encrypted secrets, and restores them easily on a new machine.
 
 ## Installation
+
+### Binary download (recommended)
+
+```bash
+# Apple Silicon (M1/M2/M3)
+curl -L https://github.com/hiiamtrong/macback/releases/latest/download/macback_$(curl -s https://api.github.com/repos/hiiamtrong/macback/releases/latest | grep tag_name | cut -d'"' -f4)_darwin_arm64.tar.gz | tar xz
+sudo mv macback /usr/local/bin/
+
+# Intel Mac
+curl -L https://github.com/hiiamtrong/macback/releases/latest/download/macback_$(curl -s https://api.github.com/repos/hiiamtrong/macback/releases/latest | grep tag_name | cut -d'"' -f4)_darwin_amd64.tar.gz | tar xz
+sudo mv macback /usr/local/bin/
+```
+
+Or download directly from the [Releases](https://github.com/hiiamtrong/macback/releases) page.
 
 ### Using `go install`
 
 ```bash
-go install github.com/trongdev/macos-backup/cmd/macback@latest
+go install github.com/hiiamtrong/macback/cmd/macback@latest
 ```
-
-### Binary download
-
-Download the latest release from the [Releases](https://github.com/trongdev/macos-backup/releases) page:
-
-- `macback-darwin-arm64` (Apple Silicon)
-- `macback-darwin-amd64` (Intel)
 
 ### Build from source
 
 ```bash
-git clone https://github.com/trongdev/macos-backup.git
-cd macos-backup
+git clone https://github.com/hiiamtrong/macback.git
+cd macback
 make build
 make install   # copies binary to /usr/local/bin/
 ```
@@ -45,7 +52,7 @@ macback list -s ~/macback-backups         # List backup contents
 
 | Command | Description | Key Flags |
 |---------|-------------|-----------|
-| `init` | Generate default config file | `-o` (output path), `--force` (overwrite existing) |
+| `init` | Generate default config file | `-o` (output path), `--force` (overwrite) |
 | `backup` | Back up configuration files | `-d` (destination), `--categories`, `--dry-run`, `--passphrase-file` |
 | `restore` | Restore from a backup folder | `-s` (source, required), `--categories`, `--force`, `--dry-run`, `--passphrase-file` |
 | `diff` | Compare backup vs current system | `-s` (source, required), `--categories` |
@@ -62,7 +69,7 @@ macback list -s ~/macback-backups         # List backup contents
 
 ## Categories
 
-macback organizes backups into categories. Each category can be independently enabled/disabled and configured.
+macback organizes backups into categories. Each can be independently enabled/disabled and configured.
 
 | Category | What it backs up | Default |
 |----------|-----------------|---------|
@@ -74,53 +81,97 @@ macback organizes backups into categories. Each category can be independently en
 | `pathbin` | Catalog of custom binaries in PATH directories | Enabled |
 | `appsettings` | `~/Library/Preferences/` plist files | Enabled |
 | `apps` | `/Applications` catalog with source detection (App Store, Homebrew, etc.) | Enabled |
+| `browser` | Chromium browser profiles (Brave, Chrome, Edge, Arc, Vivaldi, Opera…) | Enabled |
+| `projects` | Developer project source code | Disabled (configure `scan_dirs` first) |
 | `mas` | Mac App Store apps list | Disabled (requires [`mas`](https://github.com/mas-cli/mas) CLI) |
+
+## Browser Backup
+
+The `browser` category backs up profiles from all detected Chromium-based browsers:
+
+- **Brave**, **Google Chrome**, **Chromium**, **Microsoft Edge**, **Arc**, **Vivaldi**, **Opera**, **OperaGX**
+
+Each profile (`Default`, `Profile 1`, `Profile 2`, …) is backed up separately. The following are **always excluded** (ephemeral, rebuilt by the browser):
+
+> `Cache`, `Code Cache`, `GPUCache`, `IndexedDB`, `File System`, `Shared Dictionary`, `DawnCache`, `DawnWebGPUCache`, `GrShaderCache`, `ShaderCache`, `CacheStorage`, `ScriptCache`, and related GPU/shader caches.
+
+Default excludes (configurable — remove from `exclude` list to keep):
+
+> `Extensions` (re-downloaded on sign-in), `Favicons`, `History`, `Local Storage`, `Sessions`, `WebStorage`
+
+What is **kept** by default (the important stuff):
+
+> `Bookmarks`, `Preferences`, `Login Data` (passwords), `Local Extension Settings` (MetaMask vault, extension data), `Sync Data`, `Cookies`, and all other profile data.
+
+```yaml
+browser:
+  enabled: true
+  max_file_size_mb: 50
+  exclude:
+    - Extensions     # remove to keep extension source files
+    - History        # remove to keep browsing history
+```
+
+## Project Backup
+
+The `projects` category scans developer directories and backs up source code, skipping package manager directories and build artifacts.
+
+```yaml
+projects:
+  enabled: true
+  scan_dirs:
+    - ~/Works
+    - ~/projects
+  project_depth: 2        # depth to treat as project root (1 = ~/Works/myproject, 2 = ~/Works/Personal/myproject)
+  max_file_size_mb: 50    # skip files larger than this
+  exclude:
+    - node_modules
+    - vendor
+    - .venv
+    - venv
+    - .git
+    - build
+    - dist
+    - target
+    - .next
+    - data             # scraped/downloaded data
+    - "*.mp4"          # video files
+    - "*.db"           # database files
+```
 
 ## Encryption
 
-macback uses [age](https://github.com/FiloSottile/age) passphrase-based encryption (scrypt KDF) to protect sensitive files in your backups.
+macback uses [age](https://github.com/FiloSottile/age) passphrase-based encryption (scrypt KDF) to protect sensitive files.
 
-### How it works
-
-- Files that match **secret patterns** are automatically encrypted during backup.
-- Each category can define its own `secret_patterns` (e.g., SSH private keys, `.git-credentials`).
-- Global patterns in `encryption.global_secret_patterns` apply across all categories (e.g., `*.pem`, `*.key`, `.env`).
-- Encrypted files get the `.age` extension appended to their filename.
-- During restore, you provide the same passphrase to decrypt these files.
-
-### Secret pattern matching
-
-Patterns are matched against file names using glob syntax:
-
-- `id_*` matches SSH private keys like `id_rsa`, `id_ed25519`
-- `!*.pub` excludes public keys from being treated as secrets
-- `*.pem`, `*.key` match certificate and key files
-- `.env`, `.env.*` match environment files
-
-### Providing a passphrase
+- Files matching **secret patterns** are encrypted during backup and get the `.age` extension.
+- Each category defines its own `secret_patterns` (e.g., SSH private keys, `.git-credentials`).
+- `encryption.global_secret_patterns` applies across all categories (e.g., `*.pem`, `*.key`, `.env`).
+- Provide the same passphrase during restore to decrypt.
 
 ```bash
 # Interactive prompt (default)
 macback backup
 
-# Read from file (for automation / CI)
-macback backup --passphrase-file /path/to/passphrase.txt
-macback restore -s ~/macback-backups --passphrase-file /path/to/passphrase.txt
+# Read passphrase from file (for automation)
+echo "my-passphrase" > ~/.macback-passphrase
+chmod 600 ~/.macback-passphrase
+macback backup --passphrase-file ~/.macback-passphrase
+macback restore -s ~/macback-backups --passphrase-file ~/.macback-passphrase
 ```
 
 ## Configuration
 
-macback reads its configuration from `~/.macback.yaml`. Generate the default config with:
+Generate the default config with:
 
 ```bash
 macback init
 ```
 
-### Example configuration
+### Full example
 
 ```yaml
-# Where backups are stored
 backup_dest: ~/macback-backups
+max_backups: 3   # keep last N backups (0 = unlimited)
 
 categories:
   ssh:
@@ -141,8 +192,13 @@ categories:
     enabled: true
     paths:
       - ~/.zshrc
+      - ~/.zprofile
+      - ~/.zshenv
       - ~/.bashrc
+      - ~/.bash_profile
       - ~/.profile
+      - ~/.aliases
+      - ~/.functions
 
   git:
     enabled: true
@@ -198,10 +254,46 @@ categories:
       - "com.apple.*"
       - "*.lockfile"
 
+  browser:
+    enabled: true
+    max_file_size_mb: 50
+    exclude:
+      - Extensions
+      - Favicons
+      - History
+      - Local Storage
+      - Sessions
+      - WebStorage
+
+  projects:
+    enabled: false   # set to true and configure scan_dirs
+    scan_dirs:
+      - ~/Works
+      - ~/projects
+    project_depth: 1
+    max_file_size_mb: 50
+    exclude:
+      - node_modules
+      - vendor
+      - .venv
+      - venv
+      - .git
+      - build
+      - dist
+      - target
+      - .next
+      - data
+      - "*.mp4"
+      - "*.db"
+    secret_patterns:
+      - ".env"
+      - ".env.*"
+      - "*.pem"
+      - "*.key"
+
   mas:
     enabled: false  # requires `mas` CLI installed
 
-# Encryption settings
 encryption:
   enabled: true
   global_secret_patterns:
@@ -219,71 +311,41 @@ encryption:
 | Field | Description |
 |-------|-------------|
 | `backup_dest` | Directory where backups are stored (supports `~`) |
+| `max_backups` | Number of backup snapshots to keep (0 = unlimited) |
 | `categories.<name>.enabled` | Enable or disable a category |
 | `categories.<name>.paths` | Files and directories to back up (supports globs and `~`) |
-| `categories.<name>.secret_patterns` | Patterns for files that should be encrypted (prefix with `!` to exclude) |
-| `categories.<name>.exclude` | Patterns for files to skip |
+| `categories.<name>.secret_patterns` | Patterns for files that should be encrypted (prefix `!` to negate) |
+| `categories.<name>.exclude` | Patterns for files/directories to skip |
+| `categories.<name>.scan_dirs` | Directories to scan (for `browser`, `projects`, `apps`, `pathbin`) |
+| `categories.projects.project_depth` | How many levels deep to find project roots |
+| `categories.projects.max_file_size_mb` | Skip files larger than this size |
 | `encryption.enabled` | Master switch for encryption |
 | `encryption.global_secret_patterns` | Secret patterns applied to all categories |
-| `encryption.extension` | File extension for encrypted files (default: `.age`) |
+| `encryption.extension` | Extension for encrypted files (default: `.age`) |
 
 ## Examples
 
-### Back up only specific categories
-
 ```bash
-macback backup --categories ssh,git,shell
-```
+# Back up only specific categories
+macback backup --categories ssh,git,shell,browser
 
-### Preview what would be backed up
-
-```bash
+# Preview without copying
 macback backup --dry-run
-```
 
-### Back up to a custom location
-
-```bash
+# Back up to external drive
 macback backup -d /Volumes/USB/my-backup
-```
 
-### Encrypted backup with passphrase from file
-
-```bash
-echo "my-secret-passphrase" > ~/.macback-passphrase
-chmod 600 ~/.macback-passphrase
-macback backup --passphrase-file ~/.macback-passphrase
-```
-
-### Restore specific categories
-
-```bash
-macback restore -s ~/macback-backups --categories ssh,git
-```
-
-### Check differences before restoring
-
-```bash
+# Check what changed since last backup
 macback diff -s ~/macback-backups
-```
 
-### Force restore (skip confirmation prompts)
+# Restore specific categories on a new machine
+macback restore -s ~/macback-backups --categories ssh,git,shell
 
-```bash
+# Force restore (skip confirmation prompts)
 macback restore -s ~/macback-backups --force
-```
 
-### Generate shell completions
-
-```bash
-# Bash
-source <(macback completion bash)
-
-# Zsh
+# Shell completions
 source <(macback completion zsh)
-
-# Fish
-macback completion fish | source
 ```
 
 ## Development
