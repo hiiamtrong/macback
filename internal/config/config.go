@@ -95,7 +95,7 @@ func (c *Config) Validate() error {
 		"ssh": true, "shell": true, "git": true,
 		"dotfiles": true, "homebrew": true, "pathbin": true,
 		"mas": true, "appsettings": true, "apps": true,
-		"projects": true,
+		"projects": true, "browser": true,
 	}
 
 	for name := range c.Categories {

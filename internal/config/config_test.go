@@ -136,7 +136,7 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("default BackupDest should not be empty")
 	}
 
-	expectedCategories := []string{"ssh", "shell", "git", "dotfiles", "homebrew", "pathbin", "projects"}
+	expectedCategories := []string{"ssh", "shell", "git", "dotfiles", "homebrew", "pathbin", "projects", "browser"}
 	for _, name := range expectedCategories {
 		if _, ok := cfg.Categories[name]; !ok {
 			t.Errorf("default config missing category %q", name)
@@ -170,6 +170,45 @@ func TestDefaultProjectsCategory(t *testing.T) {
 	}
 	if len(projects.Exclude) == 0 {
 		t.Error("projects category should have default exclude patterns")
+	}
+}
+
+func TestDefaultBrowserCategory(t *testing.T) {
+	cfg := DefaultConfig()
+
+	browser, ok := cfg.Categories["browser"]
+	if !ok {
+		t.Fatal("default config missing 'browser' category")
+	}
+	if !browser.Enabled {
+		t.Error("browser category should be enabled by default")
+	}
+	if browser.MaxFileSizeMB != 50 {
+		t.Errorf("browser MaxFileSizeMB = %d, want 50", browser.MaxFileSizeMB)
+	}
+}
+
+func TestValidateAcceptsBrowserCategory(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	content := `
+backup_dest: /tmp/test
+categories:
+  browser:
+    enabled: true
+    max_file_size_mb: 50
+`
+	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatalf("Load() with browser category error: %v", err)
+	}
+	if cfg.Categories["browser"] == nil {
+		t.Fatal("browser category not loaded")
 	}
 }
 

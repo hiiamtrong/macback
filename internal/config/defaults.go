@@ -118,6 +118,13 @@ func DefaultConfig() *Config {
 				},
 				SecretPatterns: []string{".env", ".env.*", "*secret*", "*.pem", "*.key"},
 			},
+			"browser": {
+				Enabled:       true,
+				MaxFileSizeMB: 50,
+				// Built-in cache dirs (Cache, Code Cache, GPUCache, etc.) are always excluded.
+				// Add extra excludes here, e.g. "History" for privacy.
+				Exclude: []string{},
+			},
 		},
 		Encryption: EncryptionConfig{
 			Enabled: true,
