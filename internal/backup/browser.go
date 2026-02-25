@@ -315,9 +315,10 @@ func patchLocalStateContent(localStatePath, browserDir string) ([]byte, error) {
 // exist on disk but are not yet recorded.  This is idempotent and safe to run
 // after a restore so that old backups (made before the patching was introduced)
 // still produce a fully functional Chrome profile picker.
-func PatchAllLocalStates() {
+func PatchAllLocalStates(log patchLogger) {
 	home, err := os.UserHomeDir()
 	if err != nil {
+		log.Warn("PatchAllLocalStates: cannot get home directory: %v", err)
 		return
 	}
 	appSupport := filepath.Join(home, "Library", "Application Support")
@@ -326,11 +327,16 @@ func PatchAllLocalStates() {
 		browserDir := filepath.Join(appSupport, b.AppSupportPath)
 		localStatePath := filepath.Join(browserDir, "Local State")
 		if _, err := os.Stat(localStatePath); err != nil {
+			log.Verbose("browser patch: %s — Local State not found, skipping", b.Name)
 			continue
 		}
 
+		log.Info("Patching browser profiles: %s", b.Name)
+
+		before := countInfoCacheEntries(localStatePath)
 		patched, err := patchLocalStateContent(localStatePath, browserDir)
 		if err != nil {
+			log.Warn("browser patch %s: %v", b.Name, err)
 			continue
 		}
 
@@ -339,8 +345,49 @@ func PatchAllLocalStates() {
 		if info != nil {
 			mode = info.Mode().Perm()
 		}
-		_ = os.WriteFile(localStatePath, patched, mode)
+		if err := os.WriteFile(localStatePath, patched, mode); err != nil {
+			log.Warn("browser patch %s: writing Local State: %v", b.Name, err)
+			continue
+		}
+
+		after := countInfoCacheEntries(localStatePath)
+		if after > before {
+			log.Info("  Added %d profile(s) to %s Local State (total: %d)", after-before, b.Name, after)
+		} else {
+			log.Info("  %s Local State already up to date (%d profile(s))", b.Name, after)
+		}
 	}
+}
+
+// patchLogger is the subset of logger.Logger used by PatchAllLocalStates.
+type patchLogger interface {
+	Info(format string, args ...any)
+	Verbose(format string, args ...any)
+	Warn(format string, args ...any)
+}
+
+// countInfoCacheEntries returns the number of profiles currently in info_cache
+// of the given Local State file, or 0 on any error.
+func countInfoCacheEntries(localStatePath string) int {
+	raw, err := os.ReadFile(localStatePath)
+	if err != nil {
+		return 0
+	}
+	var state map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &state); err != nil {
+		return 0
+	}
+	var profileSection map[string]json.RawMessage
+	if v, ok := state["profile"]; ok {
+		_ = json.Unmarshal(v, &profileSection)
+	}
+	var infoCache map[string]json.RawMessage
+	if profileSection != nil {
+		if v, ok := profileSection["info_cache"]; ok {
+			_ = json.Unmarshal(v, &infoCache)
+		}
+	}
+	return len(infoCache)
 }
 
 // sha256HexBytes returns the hex-encoded SHA-256 hash of data.

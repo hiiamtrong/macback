@@ -78,7 +78,7 @@ func newRestoreCmd() *cobra.Command {
 			// Patch browser Local State files so all restored profile directories
 			// are registered in Chrome's profile picker, even for backups made
 			// before automatic patching was introduced.
-			backup.PatchAllLocalStates()
+			backup.PatchAllLocalStates(log)
 
 			fmt.Printf("\nRestore complete.\n")
 			fmt.Printf("  Restored: %d files\n", result.Restored)
