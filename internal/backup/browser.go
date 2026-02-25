@@ -109,7 +109,7 @@ func buildBrowserEntry(browserName, profileName, profileDir, path string, d fs.D
 	relToProfile, _ := filepath.Rel(profileDir, path)
 	return &FileEntry{
 		SourcePath: path,
-		RelPath:    filepath.Join("browser", browserName, profileName, relToProfile),
+		RelPath:    filepath.Join(browserName, profileName, relToProfile),
 		Category:   "browser",
 		Mode:       info.Mode().Perm(),
 		ModTime:    info.ModTime(),
@@ -222,14 +222,14 @@ func (h *BrowserHandler) Backup(ctx context.Context, entries []FileEntry, dest s
 				result.Warnings = append(result.Warnings, fmt.Sprintf("encrypting %s: %v", entry.RelPath, err))
 				continue
 			}
-			me.Path = entry.RelPath + filepath.Ext(encPath)
+			me.Path = filepath.Join("browser", entry.RelPath) + filepath.Ext(encPath)
 			me.Encrypted = true
 		} else {
 			if err := fsutil.CopyFile(entry.SourcePath, dstPath); err != nil {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("copying %s: %v", entry.RelPath, err))
 				continue
 			}
-			me.Path = entry.RelPath
+			me.Path = filepath.Join("browser", entry.RelPath)
 		}
 
 		result.Entries = append(result.Entries, *me)

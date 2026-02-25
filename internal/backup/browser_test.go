@@ -110,8 +110,8 @@ func TestBrowserDiscover_DetectsBrowser(t *testing.T) {
 
 	paths := entryRelPaths(entries)
 	wantPaths := []string{
-		filepath.Join("browser", "MyBrowser", "Default", "Bookmarks"),
-		filepath.Join("browser", "MyBrowser", "Default", "Preferences"),
+		filepath.Join("MyBrowser", "Default", "Bookmarks"),
+		filepath.Join("MyBrowser", "Default", "Preferences"),
 	}
 	for i, want := range wantPaths {
 		if paths[i] != want {
@@ -147,7 +147,7 @@ func TestBrowserDiscover_ExcludesCacheDirs(t *testing.T) {
 	if len(paths) != 1 {
 		t.Fatalf("expected 1 entry (Bookmarks), got %d: %v", len(paths), paths)
 	}
-	want := filepath.Join("browser", "MyBrowser", "Default", "Bookmarks")
+	want := filepath.Join("MyBrowser", "Default", "Bookmarks")
 	if paths[0] != want {
 		t.Errorf("RelPath = %q, want %q", paths[0], want)
 	}
@@ -175,8 +175,8 @@ func TestBrowserDiscover_MultipleProfiles(t *testing.T) {
 
 	paths := entryRelPaths(entries)
 	wantPaths := []string{
-		filepath.Join("browser", "Chrome", "Default", "Bookmarks"),
-		filepath.Join("browser", "Chrome", testProfile1, "Bookmarks"),
+		filepath.Join("Chrome", "Default", "Bookmarks"),
+		filepath.Join("Chrome", testProfile1, "Bookmarks"),
 	}
 	for i, want := range wantPaths {
 		if paths[i] != want {
@@ -287,8 +287,8 @@ func TestBrowserBackup_CopiesFiles(t *testing.T) {
 	}
 
 	// Verify files exist at expected RelPaths under destDir
-	bookmarksPath := filepath.Join(destDir, "browser", "Brave", "Default", "Bookmarks")
-	preferencesPath := filepath.Join(destDir, "browser", "Brave", "Default", "Preferences")
+	bookmarksPath := filepath.Join(destDir, "Brave", "Default", "Bookmarks")
+	preferencesPath := filepath.Join(destDir, "Brave", "Default", "Preferences")
 	if !fsutil.FileExists(bookmarksPath) {
 		t.Errorf("Bookmarks not found at expected path: %s", bookmarksPath)
 	}
