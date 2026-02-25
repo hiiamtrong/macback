@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/hiiamtrong/macback/internal/backup"
 	"github.com/hiiamtrong/macback/internal/fsutil"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +28,13 @@ type toolDef struct {
 type zshPluginDef struct {
 	Name     string // plugin directory name and how it appears in plugins=(...)
 	CloneURL string // git repository to clone
+}
+
+// gitProjectDef describes a git repository found in the projects backup.
+type gitProjectDef struct {
+	Name      string // display name, e.g. "Personal/hayhaytv"
+	CloneURL  string // remote origin URL
+	CloneDest string // contracted original path, e.g. "~/Works/Personal/hayhaytv"
 }
 
 // knownZshPlugins lists popular third-party Oh My Zsh plugins in the order
@@ -139,17 +149,20 @@ func runBootstrap(source, outputPath string, run bool) error {
 		return err
 	}
 
+	manifest, _ := backup.ReadManifest(backupDir)
+
 	shellDir := filepath.Join(backupDir, "shell")
 	detected := detectToolsInShellFiles(shellDir)
 	plugins := detectZshPlugins(shellDir)
+	gitProjects := detectGitProjects(backupDir, manifest)
 	scriptBrewfile := copyBrewfileForScript(filepath.Join(backupDir, "homebrew", "Brewfile"), outputPath)
 
-	script := generateBootstrapScript(detected, plugins, scriptBrewfile)
+	script := generateBootstrapScript(detected, plugins, gitProjects, scriptBrewfile)
 	if err := os.WriteFile(outputPath, []byte(script), 0755); err != nil {
 		return fmt.Errorf("writing setup script: %w", err)
 	}
 
-	printBootstrapSummary(detected, plugins, scriptBrewfile, outputPath)
+	printBootstrapSummary(detected, plugins, gitProjects, scriptBrewfile, outputPath)
 
 	if run {
 		return execBootstrapScript(outputPath)
@@ -189,7 +202,7 @@ func copyBrewfileForScript(brewfilePath, outputPath string) string {
 }
 
 // printBootstrapSummary prints the list of tools and plugins in the setup script.
-func printBootstrapSummary(detected map[string]bool, plugins []zshPluginDef, scriptBrewfile, outputPath string) {
+func printBootstrapSummary(detected map[string]bool, plugins []zshPluginDef, gitProjects []gitProjectDef, scriptBrewfile, outputPath string) {
 	fmt.Printf("Setup script written to: %s\n", outputPath)
 	if scriptBrewfile != "" {
 		fmt.Printf("Brewfile copied to:      %s\n", scriptBrewfile)
@@ -215,6 +228,13 @@ func printBootstrapSummary(detected map[string]bool, plugins []zshPluginDef, scr
 	}
 	if scriptBrewfile != "" {
 		fmt.Printf("  %-30s [will run brew bundle]\n", "Homebrew packages")
+	}
+	for _, p := range gitProjects {
+		status := "will clone"
+		if expanded, err := fsutil.ExpandPath(p.CloneDest); err == nil && fsutil.DirExists(expanded) {
+			status = "already exists"
+		}
+		fmt.Printf("  %-30s [%s]\n", "git: "+p.Name, status)
 	}
 	fmt.Printf("\nTo run the setup:\n  bash %s\n", outputPath)
 }
@@ -348,7 +368,7 @@ func toolBashCondition(tool toolDef) string {
 }
 
 // generateBootstrapScript returns the full content of the setup shell script.
-func generateBootstrapScript(detected map[string]bool, plugins []zshPluginDef, brewfilePath string) string {
+func generateBootstrapScript(detected map[string]bool, plugins []zshPluginDef, gitProjects []gitProjectDef, brewfilePath string) string {
 	var sb strings.Builder
 
 	sb.WriteString("#!/bin/bash\n")
@@ -371,6 +391,10 @@ func generateBootstrapScript(detected map[string]bool, plugins []zshPluginDef, b
 
 	if brewfilePath != "" {
 		writeBrewfileBlock(&sb, brewfilePath)
+	}
+
+	if len(gitProjects) > 0 {
+		writeGitProjectsBlock(&sb, gitProjects)
 	}
 
 	sb.WriteString("echo \"\"\n")
@@ -431,4 +455,127 @@ func writeBrewfileBlock(sb *strings.Builder, brewfilePath string) {
 	sb.WriteString("    fi\n")
 	sb.WriteString("  fi\n")
 	sb.WriteString("fi\n\n")
+}
+
+// writeGitProjectsBlock appends idempotent git clone blocks for each detected project.
+func writeGitProjectsBlock(sb *strings.Builder, projects []gitProjectDef) {
+	sb.WriteString("# --- Git repositories ---\n")
+	sb.WriteString("if command -v git &>/dev/null; then\n")
+	sb.WriteString("  echo \">>> Cloning git repositories...\"\n")
+	for _, p := range projects {
+		dest := homeToShellVar(p.CloneDest)
+		fmt.Fprintf(sb, "  if [ ! -d \"%s\" ]; then\n", dest)
+		fmt.Fprintf(sb, "    echo \"  Cloning %s...\"\n", p.Name)
+		fmt.Fprintf(sb, "    mkdir -p \"%s\"\n", filepath.Dir(dest))
+		fmt.Fprintf(sb, "    git clone %s \"%s\" || echo \"  Warning: could not clone %s\"\n", p.CloneURL, dest, p.Name)
+		sb.WriteString("  fi\n")
+	}
+	sb.WriteString("fi\n\n")
+}
+
+// detectGitProjects scans the backup's projects directory for git repositories
+// and returns those that have a remote origin URL and a known original path.
+func detectGitProjects(backupDir string, manifest *backup.Manifest) []gitProjectDef {
+	projectsDir := filepath.Join(backupDir, "projects")
+	if !fsutil.DirExists(projectsDir) {
+		return nil
+	}
+	cat := projectsManifestCategory(manifest)
+	var result []gitProjectDef
+	seen := make(map[string]bool)
+	_ = filepath.WalkDir(projectsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if d.Name() != "config" || filepath.Base(filepath.Dir(path)) != ".git" {
+			return nil
+		}
+		projectRoot := filepath.Dir(filepath.Dir(path))
+		if seen[projectRoot] {
+			return nil
+		}
+		seen[projectRoot] = true
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		remoteURL := parseGitRemoteURL(string(content))
+		if remoteURL == "" {
+			return nil
+		}
+		relProjectRoot, _ := filepath.Rel(backupDir, projectRoot)
+		originalDir := findProjectOriginalDir(relProjectRoot, cat)
+		if originalDir == "" {
+			return nil
+		}
+		displayName, _ := filepath.Rel(projectsDir, projectRoot)
+		result = append(result, gitProjectDef{
+			Name:      displayName,
+			CloneURL:  remoteURL,
+			CloneDest: originalDir,
+		})
+		return nil
+	})
+	return result
+}
+
+// projectsManifestCategory returns the projects ManifestCategory, or nil if absent.
+func projectsManifestCategory(manifest *backup.Manifest) *backup.ManifestCategory {
+	if manifest == nil {
+		return nil
+	}
+	cat, ok := manifest.Categories["projects"]
+	if !ok || !cat.BackedUp {
+		return nil
+	}
+	return cat
+}
+
+// findProjectOriginalDir returns the original directory for a project by looking
+// up manifest entries whose backup path starts with relProjectRoot.
+func findProjectOriginalDir(relProjectRoot string, cat *backup.ManifestCategory) string {
+	if cat == nil {
+		return ""
+	}
+	for _, f := range cat.Files {
+		if !strings.HasPrefix(f.Path, relProjectRoot+"/") {
+			continue
+		}
+		suffix := strings.TrimPrefix(f.Path, relProjectRoot+"/")
+		if orig, ok := strings.CutSuffix(f.Original, "/"+suffix); ok {
+			return orig
+		}
+	}
+	return ""
+}
+
+// parseGitRemoteURL extracts the remote origin URL from git config file content.
+func parseGitRemoteURL(content string) string {
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	inOrigin := false
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == `[remote "origin"]` {
+			inOrigin = true
+			continue
+		}
+		if strings.HasPrefix(line, "[") && inOrigin {
+			break
+		}
+		if inOrigin && strings.HasPrefix(line, "url = ") {
+			return strings.TrimPrefix(line, "url = ")
+		}
+	}
+	return ""
+}
+
+// homeToShellVar replaces a leading ~ with $HOME for use inside shell scripts.
+func homeToShellVar(path string) string {
+	if path == "~" {
+		return "$HOME"
+	}
+	if strings.HasPrefix(path, "~/") {
+		return "$HOME/" + path[2:]
+	}
+	return path
 }
